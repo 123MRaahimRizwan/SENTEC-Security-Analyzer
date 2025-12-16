@@ -1,0 +1,209 @@
+{
+  "cve_database": {
+    "SQL_INJECTION": [
+      {
+        "cve_id": "CVE-2023-36884",
+        "description": "Microsoft Office and Windows HTML RCE via SQL injection vector",
+        "cvss_score": 8.8
+      },
+      {
+        "cve_id": "CVE-2023-34362",
+        "description": "MOVEit Transfer SQL Injection leading to RCE",
+        "cvss_score": 9.8
+      },
+      {
+        "cve_id": "CVE-2022-22965",
+        "description": "Spring4Shell - Spring Framework RCE",
+        "cvss_score": 9.8
+      },
+      {
+        "cve_id": "CVE-2021-44228",
+        "description": "Log4Shell - Apache Log4j2 RCE",
+        "cvss_score": 10.0
+      }
+    ],
+    "XSS": [
+      {
+        "cve_id": "CVE-2023-4357",
+        "description": "Chrome V8 Type Confusion leading to XSS",
+        "cvss_score": 8.8
+      },
+      {
+        "cve_id": "CVE-2023-29489",
+        "description": "cPanel XSS via WebMail",
+        "cvss_score": 6.1
+      },
+      {
+        "cve_id": "CVE-2022-41040",
+        "description": "Microsoft Exchange Server XSS",
+        "cvss_score": 8.0
+      }
+    ],
+    "PATH_TRAVERSAL": [
+      {
+        "cve_id": "CVE-2023-42793",
+        "description": "JetBrains TeamCity Path Traversal",
+        "cvss_score": 9.8
+      },
+      {
+        "cve_id": "CVE-2023-22515",
+        "description": "Atlassian Confluence Path Traversal",
+        "cvss_score": 10.0
+      },
+      {
+        "cve_id": "CVE-2021-41773",
+        "description": "Apache HTTP Server Path Traversal",
+        "cvss_score": 7.5
+      }
+    ],
+    "COMMAND_INJECTION": [
+      {
+        "cve_id": "CVE-2023-46747",
+        "description": "F5 BIG-IP Command Injection",
+        "cvss_score": 9.8
+      },
+      {
+        "cve_id": "CVE-2023-20198",
+        "description": "Cisco IOS XE Command Injection",
+        "cvss_score": 10.0
+      },
+      {
+        "cve_id": "CVE-2022-42475",
+        "description": "FortiOS SSL-VPN Command Injection",
+        "cvss_score": 9.8
+      }
+    ],
+    "BRUTE_FORCE": [
+      {
+        "cve_id": "CVE-2023-46805",
+        "description": "Ivanti Connect Secure Auth Bypass",
+        "cvss_score": 8.2
+      },
+      {
+        "cve_id": "CVE-2023-27350",
+        "description": "PaperCut Authentication Bypass",
+        "cvss_score": 9.8
+      }
+    ],
+    "DOS": [
+      {
+        "cve_id": "CVE-2023-44487",
+        "description": "HTTP/2 Rapid Reset DDoS Attack",
+        "cvss_score": 7.5
+      },
+      {
+        "cve_id": "CVE-2023-38408",
+        "description": "OpenSSH Remote Code Execution",
+        "cvss_score": 9.8
+      }
+    ],
+    "UNAUTHORIZED_ACCESS": [
+      {
+        "cve_id": "CVE-2023-4966",
+        "description": "Citrix Bleed - Session Hijacking",
+        "cvss_score": 9.4
+      },
+      {
+        "cve_id": "CVE-2023-22518",
+        "description": "Atlassian Confluence Improper Authorization",
+        "cvss_score": 9.1
+      }
+    ],
+    "PORT_SCAN": [
+      {
+        "cve_id": "CVE-2023-48788",
+        "description": "Fortinet FortiClient EMS SQL Injection via Recon",
+        "cvss_score": 9.8
+      }
+    ]
+  },
+  "cwe_database": {
+    "SQL_INJECTION": {
+      "cwe_id": "CWE-89",
+      "name": "SQL Injection",
+      "category": "Injection"
+    },
+    "XSS": {
+      "cwe_id": "CWE-79",
+      "name": "Cross-site Scripting",
+      "category": "Injection"
+    },
+    "PATH_TRAVERSAL": {
+      "cwe_id": "CWE-22",
+      "name": "Path Traversal",
+      "category": "Input Validation"
+    },
+    "COMMAND_INJECTION": {
+      "cwe_id": "CWE-78",
+      "name": "OS Command Injection",
+      "category": "Injection"
+    },
+    "BRUTE_FORCE": {
+      "cwe_id": "CWE-307",
+      "name": "Improper Restriction of Excessive Authentication Attempts",
+      "category": "Authentication"
+    },
+    "DOS": {
+      "cwe_id": "CWE-400",
+      "name": "Uncontrolled Resource Consumption",
+      "category": "Resource Management"
+    },
+    "UNAUTHORIZED_ACCESS": {
+      "cwe_id": "CWE-863",
+      "name": "Incorrect Authorization",
+      "category": "Authorization"
+    },
+    "PORT_SCAN": {
+      "cwe_id": "CWE-200",
+      "name": "Information Exposure",
+      "category": "Information Disclosure"
+    }
+  },
+  "mitre_attack": {
+    "SQL_INJECTION": {
+      "technique_id": "T1190",
+      "technique_name": "Exploit Public-Facing Application",
+      "tactic": "Initial Access"
+    },
+    "XSS": {
+      "technique_id": "T1189",
+      "technique_name": "Drive-by Compromise",
+      "tactic": "Initial Access"
+    },
+    "PATH_TRAVERSAL": {
+      "technique_id": "T1083",
+      "technique_name": "File and Directory Discovery",
+      "tactic": "Discovery"
+    },
+    "COMMAND_INJECTION": {
+      "technique_id": "T1059",
+      "technique_name": "Command and Scripting Interpreter",
+      "tactic": "Execution"
+    },
+    "BRUTE_FORCE": {
+      "technique_id": "T1110",
+      "technique_name": "Brute Force",
+      "tactic": "Credential Access"
+    },
+    "DOS": {
+      "technique_id": "T1499",
+      "technique_name": "Endpoint Denial of Service",
+      "tactic": "Impact"
+    },
+    "UNAUTHORIZED_ACCESS": {
+      "technique_id": "T1078",
+      "technique_name": "Valid Accounts",
+      "tactic": "Persistence"
+    },
+    "PORT_SCAN": {
+      "technique_id": "T1046",
+      "technique_name": "Network Service Discovery",
+      "tactic": "Discovery"
+    }
+  },
+  "metadata": {
+    "created": "2025-12-16T12:14:25.810182",
+    "version": "1.0",
+    "description": "Vulnerability knowledge base for RAG-based threat intelligence"
+  }
+}

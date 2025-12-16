@@ -1,0 +1,16 @@
+{
+  "total_events": 775,
+  "normal_events": 500,
+  "malicious_events": 275,
+  "attack_breakdown": {
+    "SQL_INJECTION": 25,
+    "XSS": 20,
+    "PATH_TRAVERSAL": 15,
+    "COMMAND_INJECTION": 15,
+    "UNAUTHORIZED_ACCESS": 20,
+    "BRUTE_FORCE": 30,
+    "PORT_SCAN": 50,
+    "DOS": 100
+  },
+  "malicious_percentage": 35.48
+}
