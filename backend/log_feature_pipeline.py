@@ -169,21 +169,27 @@ def fill_missing_values(df: pd.DataFrame) -> pd.DataFrame:
 def scale_and_encode(df: pd.DataFrame):
     df = df.copy()
 
-    # Drop columns not used for ML
-    df = df.drop(
-        columns=['event_id', 'source_ip', 'query_params', 'dest_port', 'username'],
-        errors='ignore'
-    )
+    # DO NOT drop event_id here, we need it for evaluation merging
+    cols_to_drop = ['source_ip', 'query_params', 'dest_port', 'username', 'timestamp']
+    df = df.drop(columns=[c for c in cols_to_drop if c in df.columns], errors='ignore')
 
-    # Scaling
+    # Scaling - only on numeric columns, excluding event_id if it's numeric
     num_cols = df.select_dtypes(include='number').columns
+    # Ensure event_id is treated as an object/string if it's currently a number
+    if 'event_id' in num_cols:
+        num_cols = num_cols.drop('event_id')
+        
     scaler = StandardScaler()
     df[num_cols] = scaler.fit_transform(df[num_cols])
 
-    # One-hot encoding
-    df = pd.get_dummies(df, columns=df.select_dtypes(include="object").columns)
+    # One-hot encoding - skip event_id so it doesn't get turned into multiple columns
+    target_cols = df.select_dtypes(include="object").columns
+    if 'event_id' in target_cols:
+        target_cols = target_cols.drop('event_id')
+        
+    df = pd.get_dummies(df, columns=target_cols)
 
-    return df, scaler
+    return df
 
 
 # -----------------------------
@@ -199,11 +205,10 @@ def process_logs(csv_path: str):
     df = add_network_features(df)
     df = add_temporal_features(df)
     df = fill_missing_values(df)
-    df, scaler = scale_and_encode(df)
+    df = scale_and_encode(df)
 
     return {
         "features": df,
-        "scaler": scaler,
-        "tfidf_vectorizer": vectorizer,
+        "vectorizer": vectorizer,
         "tfidf_matrix": tfidf_matrix
     }
