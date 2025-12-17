@@ -169,9 +169,9 @@ def fill_missing_values(df: pd.DataFrame) -> pd.DataFrame:
 def scale_and_encode(df: pd.DataFrame):
     df = df.copy()
 
-    # Drop columns not used for ML
+    # Drop columns not used for ML (keep event_id for merging labels later)
     df = df.drop(
-        columns=['event_id', 'source_ip', 'query_params', 'dest_port', 'username'],
+        columns=['source_ip', 'query_params', 'dest_port', 'username', 'timestamp'],
         errors='ignore'
     )
 
@@ -180,8 +180,11 @@ def scale_and_encode(df: pd.DataFrame):
     scaler = StandardScaler()
     df[num_cols] = scaler.fit_transform(df[num_cols])
 
-    # One-hot encoding
-    df = pd.get_dummies(df, columns=df.select_dtypes(include="object").columns)
+    # One-hot encoding (exclude event_id)
+    obj_cols = df.select_dtypes(include="object").columns.tolist()
+    if 'event_id' in obj_cols:
+        obj_cols.remove('event_id')
+    df = pd.get_dummies(df, columns=obj_cols)
 
     return df, scaler
 
