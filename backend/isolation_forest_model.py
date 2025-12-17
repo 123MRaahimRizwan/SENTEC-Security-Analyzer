@@ -70,3 +70,15 @@ y_pred = np.where(y_pred == 1, 0, 1)  # Convert: 1 -> 0 (normal), -1 -> 1 (anoma
 
 print("Accuracy in finding anomaly:", accuracy_score(y_test, y_pred))
 print(classification_report(y_test, y_pred))
+
+# Flagged anomalies
+
+# Get anomaly scores and flagged events
+scores = model.decision_function(x)
+df['anomaly_score'] = scores
+df['is_anomaly'] = y_pred
+
+flagged_df = df[df['is_anomaly'] == 1][['event_id', 'defect', 'anomaly_score']]
+
+print(f"\nFlagged {len(flagged_df)} anomalous events:")
+print(flagged_df.sort_values('anomaly_score'))
