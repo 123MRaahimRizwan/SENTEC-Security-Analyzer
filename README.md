@@ -306,6 +306,26 @@ The frontend will start at: **http://localhost:5173**
 ### CORS Errors
 Make sure the Flask backend is running and CORS is properly configured for `localhost:5173`.
 
+
 ### Port Already in Use
 - Backend default: `5000` - Change in `app.py`
 - Frontend default: `5173` - Change in `vite.config.js`
+
+---
+
+## Security_Policy_Ingestion PDF
+
+To ensure responsible and secure use of the LLM within the Sentinel-RAG pipeline, a formal security policy document is generated as `Security_Policy_Ingestion.pdf` (see `pdf_genrate.py`).
+
+**Why was this created?**
+
+Modern LLM-based systems require clear boundaries on what data can be ingested, especially in security-sensitive applications. The security policy PDF:
+
+- Defines exactly what material (datasets, knowledge base, telemetry) is authorized for ingestion by the LLM.
+- Explicitly lists prohibited data (e.g., ground truth labels, secrets, PII) to prevent data leakage or misuse.
+- Documents the scope, definitions, and change control for compliance and auditability.
+- Serves as a reference for developers, auditors, and security teams to ensure the LLM only accesses approved information.
+
+**Purpose:**
+
+The purpose of `Security_Policy_Ingestion.pdf` is to provide a transparent, auditable, and enforceable policy for data ingestion, supporting both regulatory compliance and operational security in the RAG pipeline.
