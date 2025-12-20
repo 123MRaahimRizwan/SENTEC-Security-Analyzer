@@ -1,4 +1,5 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
+from pdf_injestion import run_pdf_ingestion_pipeline
 from flask_cors import CORS
 
 app = Flask(__name__)
@@ -33,6 +34,20 @@ def get_alerts():
     """Return a list of dummy security alerts."""
     return jsonify(DUMMY_ALERTS)
 
+@app.route("/api/pdf-ingest", methods=["POST"])
+def pdf_ingest():
+    """
+    Ingest a PDF by path (JSON: {"pdf_path": ...}) and return chunked text as JSON.
+    """
+    data = request.get_json()
+    pdf_path = data.get("pdf_path") if data else None
+    if not pdf_path:
+        return jsonify({"error": "Missing 'pdf_path' in request body."}), 400
+    try:
+        result = run_pdf_ingestion_pipeline(pdf_path=pdf_path)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)

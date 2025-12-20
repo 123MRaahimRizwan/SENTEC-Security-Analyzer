@@ -17,3 +17,5 @@ six==1.17.0
 threadpoolctl==3.6.0
 tzdata==2025.3
 Werkzeug==3.1.4
+pypdf==3.17.4
+nltk==3.8.1
