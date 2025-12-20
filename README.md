@@ -329,3 +329,23 @@ Modern LLM-based systems require clear boundaries on what data can be ingested, 
 **Purpose:**
 
 The purpose of `Security_Policy_Ingestion.pdf` is to provide a transparent, auditable, and enforceable policy for data ingestion, supporting both regulatory compliance and operational security in the RAG pipeline.
+
+
+---
+
+
+## Phase 04: PDF Ingestion and text chunking
+
+### What was added?
+
+- Added a new feature in the backend (`pdf_injestion.py`) that lets the system read PDF files and break them into smaller pieces of text.
+- You can use the `/api/pdf-ingest` API to send the path of a PDF file, and the backend will read the file, clean up the text, and split it into chunks (small sections) with a little bit of overlap for better understanding.
+- The size of each chunk and how much they overlap can be changed if needed.
+- The API gives you a quick look at the first few chunks and tells you how many chunks were made, so you can check if it worked well.
+
+### Why was this added?
+
+- To make it easy to bring in (ingest) important documents like security policies or any other PDF files into the system for checking, searching, or using with AI models.
+- Breaking the PDF into smaller parts helps the system process, search, and understand the document better, especially if the file is large.
+- Overlapping the chunks a little means you don’t lose important context between sections, so answers and summaries are more accurate.
+- This also helps with following rules and keeping things clear, because you can easily check and process policy documents.
