@@ -3,7 +3,7 @@ import nltk
 from nltk.tokenize import sent_tokenize
 import re
 
-PDF_PATH = "security_policy.pdf"
+PDF_PATH = "Security_Policy_Ingestion.pdf"
 CHUNK_SIZE = 500
 OVERLAP_SENTENCES = 2
 
