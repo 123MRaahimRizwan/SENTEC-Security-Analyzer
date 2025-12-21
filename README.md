@@ -349,3 +349,25 @@ The purpose of `Security_Policy_Ingestion.pdf` is to provide a transparent, audi
 - Breaking the PDF into smaller parts helps the system process, search, and understand the document better, especially if the file is large.
 - Overlapping the chunks a little means you don’t lose important context between sections, so answers and summaries are more accurate.
 - This also helps with following rules and keeping things clear, because you can easily check and process policy documents.
+
+---
+
+## Phase 04: Vector DB Setup (QDrant)
+
+### What was added?
+
+- Integrated QDrant as the vector database for storing and searching document embeddings.
+- Added a backend script (`setup_vector_db.py`) to initialize the QDrant collection and upload text chunks (from ingested PDFs or the knowledge base) as vector embeddings.
+- The script uses an embedding model (e.g., Sentence Transformers) to convert text chunks into high-dimensional vectors before storing them in QDrant.
+- Each vector in QDrant is linked to its source text and metadata (e.g., document name, chunk index).
+- The backend can now perform semantic search: given a query, it retrieves the most relevant text chunks from QDrant using vector similarity.
+
+### Why was this added?
+
+- To enable fast, scalable, and accurate retrieval of relevant information for RAG (Retrieval-Augmented Generation) workflows.
+- Storing embeddings in QDrant allows the system to efficiently search large document collections using semantic similarity, not just keyword matching.
+- This is essential for LLM-based threat intelligence, where the model needs to find the most relevant context (e.g., CVEs, policies, mitigations) for a given alert or question.
+- The vector DB setup is modular: you can add new documents, re-embed, or update the collection as needed.
+- QDrant is open-source, easy to run locally or in the cloud, and supports advanced filtering and metadata search.
+
+---
