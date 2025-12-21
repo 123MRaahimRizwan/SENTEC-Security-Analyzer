@@ -3,35 +3,30 @@ import nltk
 from nltk.tokenize import sent_tokenize
 import re
 
-PDF_PATH = "./Security_Policy_Ingestion.pdf"
-CHUNK_SIZE = 800       
-CHUNK_OVERLAP = 3    
+PDF_PATH = "security_policy.pdf"
+CHUNK_SIZE = 500
+OVERLAP_SENTENCES = 2
 
 
 def extract_text_from_pdf(pdf_path):
     reader = PdfReader(pdf_path)
     text = ""
-
-    for page_num, page in enumerate(reader.pages):
-        page_text = page.extract_text()
-        if page_text:
-            text += f"\n\n--- Page {page_num + 1} ---\n"
-            text += page_text
-
+    
+    for page in reader.pages:
+        text += page.extract_text() + " "
+    
     return text
 
 
 def clean_text(text):
+    # Remove headers and footers
     text = text.replace("AI Data Ingestion & Security Policy", "")
     text = text.replace("Sentinel-RAG Pipeline | Classification: INTERNAL", "")
-    # 2. Remove Footers using Regex (Matches "Page 1/4-Generated: 2025-12-18")
-    # [cite: 25, 47, 70, 74]
-    text = re.sub(r"Page \d+/\d+-Generated: \d{4}-\d{2}-\d{2}", "", text)
-    text = text.replace("\t", " ")
-    text = text.replace("\n", " ")
+    text = re.sub(r"Page \d+/\d+ - Generated: \d{4}-\d{2}-\d{2}", "", text)
+    # Clean up spaces
     text = " ".join(text.split())
+    
     return text
-
 
 def chunk_text(text, chunk_size, overlap):
     sentences = sent_tokenize(text)
@@ -57,25 +52,26 @@ def chunk_text(text, chunk_size, overlap):
     return chunks
 
 
-def run_pdf_ingestion_pipeline(pdf_path=PDF_PATH, chunk_size=CHUNK_SIZE, overlap=CHUNK_OVERLAP, preview_chunks=3):
+
+def run_pdf_ingestion_pipeline(pdf_path=PDF_PATH, chunk_size=CHUNK_SIZE, overlap=OVERLAP_SENTENCES, preview_chunks=3):
+    """Main function: read PDF and split into chunks."""
     
     try:
         nltk.data.find("tokenizers/punkt")
     except LookupError:
         nltk.download("punkt")
-        
+    
     raw_text = extract_text_from_pdf(pdf_path)
     cleaned_text = clean_text(raw_text)
-
     chunks = chunk_text(cleaned_text, chunk_size, overlap)
-
+    
     preview = []
-    for i, chunk in enumerate(chunks[:preview_chunks]):
+    for i in range(min(preview_chunks, len(chunks))):
         preview.append({
             "chunk_number": i + 1,
-            "text": chunk[:500]
+            "text": chunks[i][:300]  
         })
-
+    
     return {
         "total_chunks": len(chunks),
         "preview_chunks": preview,

@@ -1,5 +1,6 @@
 from flask import Flask, jsonify, request
 from pdf_injestion import run_pdf_ingestion_pipeline
+from setup_vector_db import setup_qdrant
 from flask_cors import CORS
 
 app = Flask(__name__)
@@ -36,9 +37,6 @@ def get_alerts():
 
 @app.route("/api/pdf-ingest", methods=["POST"])
 def pdf_ingest():
-    """
-    Ingest a PDF by path (JSON: {"pdf_path": ...}) and return chunked text as JSON.
-    """
     data = request.get_json()
     pdf_path = data.get("pdf_path") if data else None
     if not pdf_path:
@@ -49,5 +47,19 @@ def pdf_ingest():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route("/api/setup-vector-db", methods=["POST"])
+def setup_vector_db_api():
+    """
+    Set up the vector database using the ingested PDF chunks.
+    Accepts optional JSON: {"pdf_path": ...} to ingest a specific PDF.
+    Returns a summary of the operation.
+    """
+    data = request.get_json()
+    pdf_path = data.get("pdf_path") if data else None
+    try:
+        setup_qdrant(pdf_path=pdf_path)
+        return jsonify({"status": "success", "message": "Vector DB setup complete."})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
