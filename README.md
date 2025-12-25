@@ -1,7 +1,7 @@
 # Sentinel-RAG 🛡️
 
 A RAG-based threat intelligence system that detects anomalies in server logs and provides contextualized, prioritized security alerts with LLM-generated mitigation plans.
-
+Backend: Python 3.10.11
 ## Architecture
 
 ```
@@ -280,9 +280,24 @@ The frontend will start at: **http://localhost:5173**
 
 ## Available Scripts
 
-### Frontend
+## Frontend
 
-| Command           | Description                    |
+### Setup & Development
+
+1. Navigate to the `frontend` folder:
+  ```sh
+  cd frontend
+  ```
+2. Install dependencies:
+  ```sh
+  npm install
+  ```
+3. Start the development server:
+  ```sh
+  npm run dev:client
+  ```
+
+...existing code...
 |-------------------|--------------------------------|
 | `npm run dev`     | Start development server       |
 | `npm run build`   | Build for production           |
