@@ -316,16 +316,16 @@ def analyze_alert():
             # Map attack type to expected severity (simplified mapping)
             attack_type_gt = ground_truth_data[event_id]
             severity_mapping = {
-                "SQL_INJECTION": "Critical",
-                "COMMAND_INJECTION": "Critical",
-                "XSS": "High",
-                "BRUTE_FORCE": "High",
-                "DOS": "High",
-                "UNAUTHORIZED_ACCESS": "Medium",
-                "PORT_SCAN": "Medium",
-                "PATH_TRAVERSAL": "Medium"
+                "SQL_INJECTION": "critical",
+                "COMMAND_INJECTION": "critical",
+                "XSS": "high",
+                "BRUTE_FORCE": "high",
+                "DOS": "high",
+                "UNAUTHORIZED_ACCESS": "medium",
+                "PORT_SCAN": "medium",
+                "PATH_TRAVERSAL": "medium"
             }
-            actual_severity = severity_mapping.get(attack_type_gt, "Medium")
+            actual_severity = severity_mapping.get(attack_type_gt, "medium")
         
         # Track metrics
         metrics_tracker.track_alert_analysis(
@@ -1061,8 +1061,14 @@ def get_metrics():
     """Get all performance metrics"""
     try:
         metrics = metrics_tracker.get_all_metrics()
+        
+        # Use tracked metrics directly - accuracy is calculated from analyzed alerts only
+        # The metrics_tracker.get_critical_alerts_accuracy() already handles the calculation correctly
+        
         return jsonify(metrics)
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
 @app.route("/api/metrics/mitigation-feedback", methods=["POST"])

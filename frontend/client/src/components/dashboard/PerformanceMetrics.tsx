@@ -73,6 +73,22 @@ export function PerformanceMetrics() {
 
   const { critical_alerts_accuracy, mitigation_relevance, response_time_reduction } = metricsData;
 
+  // Check if metrics have valid data (not N/A)
+  const hasCriticalAlertsAccuracy = critical_alerts_accuracy.critical_alerts_accuracy !== null && critical_alerts_accuracy.critical_alerts_accuracy !== undefined;
+  const hasMitigationRelevance = mitigation_relevance.avg_relevance_score !== null && mitigation_relevance.avg_relevance_score !== undefined;
+  const hasResponseTimeReduction = response_time_reduction.time_reduction_percent !== null && response_time_reduction.time_reduction_percent !== undefined;
+
+  // Count how many metrics have valid data
+  const validMetricsCount = [hasCriticalAlertsAccuracy, hasMitigationRelevance, hasResponseTimeReduction].filter(Boolean).length;
+
+  // Don't render anything if no metrics have valid data
+  if (validMetricsCount === 0) {
+    return null;
+  }
+
+  // Determine grid columns based on number of valid metrics
+  const gridCols = validMetricsCount === 1 ? "grid-cols-1" : validMetricsCount === 2 ? "md:grid-cols-2" : "md:grid-cols-3";
+
   return (
     <div className="space-y-6">
       <div>
@@ -82,25 +98,21 @@ export function PerformanceMetrics() {
         </h3>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className={`grid grid-cols-1 ${gridCols} gap-6`}>
         {/* Critical Alerts Accuracy */}
-        <Card className="bg-card/40 border-border/50 backdrop-blur-sm">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-display flex items-center gap-2">
-              <Shield className="h-4 w-4 text-destructive" />
-              Critical Alerts Accuracy
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {critical_alerts_accuracy.message ? (
-              <div className="text-sm text-muted-foreground">
-                {critical_alerts_accuracy.message}
-              </div>
-            ) : (
+        {hasCriticalAlertsAccuracy && (
+          <Card className="bg-card/40 border-border/50 backdrop-blur-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-display flex items-center gap-2">
+                <Shield className="h-4 w-4 text-destructive" />
+                Critical Alerts Accuracy
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
               <div className="space-y-3">
                 <div>
                   <div className="text-3xl font-mono font-bold text-foreground">
-                    {critical_alerts_accuracy.critical_alerts_accuracy?.toFixed(1) ?? "N/A"}%
+                    {critical_alerts_accuracy.critical_alerts_accuracy!.toFixed(1)}%
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">Critical Alerts Identified</p>
                 </div>
@@ -127,29 +139,25 @@ export function PerformanceMetrics() {
                   )}
                 </div>
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Mitigation Relevance */}
-        <Card className="bg-card/40 border-border/50 backdrop-blur-sm">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-display flex items-center gap-2">
-              <Star className="h-4 w-4 text-yellow-500" />
-              Mitigation Relevance
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {mitigation_relevance.message ? (
-              <div className="text-sm text-muted-foreground">
-                {mitigation_relevance.message}
-              </div>
-            ) : (
+        {hasMitigationRelevance && (
+          <Card className="bg-card/40 border-border/50 backdrop-blur-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-display flex items-center gap-2">
+                <Star className="h-4 w-4 text-yellow-500" />
+                Mitigation Relevance
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
               <div className="space-y-3">
                 <div>
                   <div className="flex items-center gap-2">
                     <div className="text-3xl font-mono font-bold text-foreground">
-                      {mitigation_relevance.avg_relevance_score?.toFixed(1) ?? "N/A"}%
+                      {mitigation_relevance.avg_relevance_score!.toFixed(1)}%
                     </div>
                     {mitigation_relevance.relevance_grade && (
                       <Badge variant="outline" className="text-lg px-2 py-1">
@@ -183,30 +191,26 @@ export function PerformanceMetrics() {
                   )}
                 </div>
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Response Time Reduction */}
-        <Card className="bg-card/40 border-border/50 backdrop-blur-sm">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-display flex items-center gap-2">
-              <Clock className="h-4 w-4 text-emerald-500" />
-              Response Time
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {response_time_reduction.message ? (
-              <div className="text-sm text-muted-foreground">
-                {response_time_reduction.message}
-              </div>
-            ) : (
+        {hasResponseTimeReduction && (
+          <Card className="bg-card/40 border-border/50 backdrop-blur-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-display flex items-center gap-2">
+                <Clock className="h-4 w-4 text-emerald-500" />
+                Response Time
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
               <div className="space-y-3">
                 <div>
                   <div className="flex items-center gap-2">
                     <TrendingUp className="h-5 w-5 text-emerald-500" />
                     <div className="text-3xl font-mono font-bold text-emerald-500">
-                      {response_time_reduction.time_reduction_percent?.toFixed(1) ?? "N/A"}%
+                      {response_time_reduction.time_reduction_percent!.toFixed(1)}%
                     </div>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">Time Reduction</p>
@@ -232,9 +236,9 @@ export function PerformanceMetrics() {
                   </div>
                 </div>
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );
