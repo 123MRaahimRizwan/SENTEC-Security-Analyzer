@@ -4,9 +4,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { MOCK_THREAT_INTEL } from "@/lib/mock-data";
-import { Search, TrendingUp, Eye, RefreshCw, AlertTriangle } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+// import { MOCK_THREAT_INTEL } from "@/lib/mock-data";
+import { Search, TrendingUp, Eye, RefreshCw, AlertTriangle, Shield, ExternalLink } from "lucide-react";
 import { motion } from "framer-motion";
+import { useQuery } from "@tanstack/react-query";
+import { getApiUrl } from "@/lib/api-config";
+import { useState } from "react";
 import generatedImage from '@assets/generated_images/dark_cybersecurity_background_texture.png';
 
 const typeColors = {
@@ -17,6 +21,28 @@ const typeColors = {
 };
 
 export default function Intelligence() {
+  const [selectedThreat, setSelectedThreat] = useState<any | null>(null);
+  
+  const { data: threatIntelData, isLoading } = useQuery({
+    queryKey: ["threat-intel"],
+    queryFn: async () => {
+      const res = await fetch(getApiUrl("api/threat-intel"), { credentials: "include" });
+      if (!res.ok) {
+        throw new Error("Failed to fetch threat intelligence");
+      }
+      return res.json();
+    },
+    refetchInterval: 30000,
+  });
+  
+  const threatIntel = threatIntelData || [];
+  
+  // Calculate statistics
+  const criticalCVEs = threatIntel.filter((t: any) => t.type === 'cve' && t.severity === 'critical').length;
+  const activeFeeds = threatIntel.filter((t: any) => t.type === 'threat_feed').length;
+  const threatSources = threatIntel.length;
+  const coverageScore = threatIntel.length > 0 ? Math.min(100, Math.round((threatIntel.reduce((sum: number, t: any) => sum + (t.score || 0), 0) / threatIntel.length) * 100)) : 0;
+  
   return (
     <div className="flex min-h-screen bg-background text-foreground font-sans">
       <Sidebar />
@@ -56,39 +82,48 @@ export default function Intelligence() {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <Card className="bg-card/40 border-border/50 backdrop-blur-sm">
                 <CardContent className="pt-6">
-                  <div className="text-2xl font-bold font-mono text-destructive">2</div>
+                  <div className="text-2xl font-bold font-mono text-destructive">{criticalCVEs}</div>
                   <p className="text-xs text-muted-foreground uppercase tracking-widest mt-1">Critical CVEs</p>
                 </CardContent>
               </Card>
               <Card className="bg-card/40 border-border/50 backdrop-blur-sm">
                 <CardContent className="pt-6">
-                  <div className="text-2xl font-bold font-mono">6</div>
+                  <div className="text-2xl font-bold font-mono">{activeFeeds}</div>
                   <p className="text-xs text-muted-foreground uppercase tracking-widest mt-1">Active Feeds</p>
                 </CardContent>
               </Card>
               <Card className="bg-card/40 border-border/50 backdrop-blur-sm">
                 <CardContent className="pt-6">
-                  <div className="text-2xl font-bold font-mono text-primary">127</div>
+                  <div className="text-2xl font-bold font-mono text-primary">{threatSources}</div>
                   <p className="text-xs text-muted-foreground uppercase tracking-widest mt-1">Threat Sources</p>
                 </CardContent>
               </Card>
               <Card className="bg-card/40 border-border/50 backdrop-blur-sm">
                 <CardContent className="pt-6">
-                  <div className="text-2xl font-bold font-mono">84%</div>
+                  <div className="text-2xl font-bold font-mono">{coverageScore}%</div>
                   <p className="text-xs text-muted-foreground uppercase tracking-widest mt-1">Coverage Score</p>
                 </CardContent>
               </Card>
             </div>
 
             <div className="space-y-3">
-              {MOCK_THREAT_INTEL.map((intel, idx) => (
+              {isLoading ? (
+                <Card className="bg-card/40 border-border/50 backdrop-blur-sm">
+                  <CardContent className="p-8 text-center">
+                    <p className="text-muted-foreground">Loading threat intelligence...</p>
+                  </CardContent>
+                </Card>
+              ) : threatIntel.length > 0 ? threatIntel.map((intel: any, idx: number) => (
                 <motion.div
                   key={intel.id}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.05 }}
                 >
-                  <Card className="bg-card/40 backdrop-blur-sm hover:bg-card/60 transition-all cursor-pointer group border-l-4 border-l-primary">
+                  <Card 
+                    className="bg-card/40 backdrop-blur-sm hover:bg-card/60 transition-all cursor-pointer group border-l-4 border-l-primary"
+                    onClick={() => setSelectedThreat(intel)}
+                  >
                     <CardHeader>
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex-1">
@@ -127,11 +162,134 @@ export default function Intelligence() {
                     </CardContent>
                   </Card>
                 </motion.div>
-              ))}
+              )) : (
+                <Card className="bg-card/40 border-border/50 backdrop-blur-sm">
+                  <CardContent className="p-8 text-center">
+                    <p className="text-muted-foreground">No threat intelligence detected</p>
+                    <p className="text-xs text-muted-foreground mt-2">Upload log files to analyze threats</p>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </div>
         </div>
       </main>
+      
+      {/* Threat Details Dialog */}
+      <Dialog open={!!selectedThreat} onOpenChange={(open) => !open && setSelectedThreat(null)}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          {selectedThreat && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-2xl font-display">{selectedThreat.title}</DialogTitle>
+                <DialogDescription>
+                  {selectedThreat.type.replace('_', ' ').toUpperCase()} • {selectedThreat.severity.toUpperCase()} • Updated: {new Date(selectedThreat.lastUpdated).toLocaleString()}
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="space-y-6 mt-4">
+                {/* Threat Overview */}
+                <Card className="bg-card/40 border-primary/20">
+                  <CardContent className="p-6">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div>
+                        <p className="text-xs text-muted-foreground uppercase tracking-wider">Type</p>
+                        <Badge className={`mt-2 ${typeColors[selectedThreat.type]}`}>
+                          {selectedThreat.type.replace('_', ' ')}
+                        </Badge>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground uppercase tracking-wider">Severity</p>
+                        <Badge variant="outline" className="mt-2 border-destructive/50 text-destructive bg-destructive/10">
+                          {selectedThreat.severity}
+                        </Badge>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground uppercase tracking-wider">Confidence</p>
+                        <p className="text-2xl font-mono font-bold text-primary mt-2">{(selectedThreat.score * 100).toFixed(0)}%</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground uppercase tracking-wider">Sources</p>
+                        <p className="text-2xl font-mono font-bold text-foreground mt-2">{selectedThreat.sources}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                {/* Description */}
+                <div>
+                  <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                    <Shield className="h-5 w-5 text-primary" />
+                    Threat Description
+                  </h3>
+                  <Card className="bg-card/40 border-border/50">
+                    <CardContent className="p-4">
+                      <p className="text-sm text-foreground">{selectedThreat.description}</p>
+                    </CardContent>
+                  </Card>
+                </div>
+                
+                {/* Threat Details */}
+                <div>
+                  <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5 text-destructive" />
+                    Threat Details
+                  </h3>
+                  <Card className="bg-card/40 border-border/50">
+                    <CardContent className="p-4 space-y-3">
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <p className="text-muted-foreground">Threat ID</p>
+                          <p className="font-mono font-semibold mt-1">{selectedThreat.id}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Last Updated</p>
+                          <p className="font-mono font-semibold mt-1">{new Date(selectedThreat.lastUpdated).toLocaleString()}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Threat Type</p>
+                          <p className="font-semibold mt-1 capitalize">{selectedThreat.type.replace('_', ' ')}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Confidence Score</p>
+                          <p className="font-mono font-semibold text-primary mt-1">{(selectedThreat.score * 100).toFixed(2)}%</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+                
+                {/* Recommended Actions */}
+                <div>
+                  <h3 className="text-lg font-semibold mb-3">Recommended Actions</h3>
+                  <Card className="bg-card/40 border-border/50">
+                    <CardContent className="p-4">
+                      <ul className="space-y-2 text-sm">
+                        <li className="flex items-start gap-2">
+                          <span className="text-primary mt-1">•</span>
+                          <span>Monitor network traffic for patterns matching this threat type</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-primary mt-1">•</span>
+                          <span>Review security policies related to {selectedThreat.type.replace('_', ' ')}</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-primary mt-1">•</span>
+                          <span>Check affected assets and endpoints for similar indicators</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-primary mt-1">•</span>
+                          <span>Update threat intelligence feeds and security rules</span>
+                        </li>
+                      </ul>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

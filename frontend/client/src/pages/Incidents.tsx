@@ -4,9 +4,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { MOCK_INCIDENTS } from "@/lib/mock-data";
+// import { MOCK_INCIDENTS } from "@/lib/mock-data";
 import { Search, Clock, Users, AlertTriangle, CheckCircle, Filter } from "lucide-react";
 import { motion } from "framer-motion";
+import { useQuery } from "@tanstack/react-query";
+import { getApiUrl } from "@/lib/api-config";
 import generatedImage from '@assets/generated_images/dark_cybersecurity_background_texture.png';
 
 const statusColors = {
@@ -17,6 +19,26 @@ const statusColors = {
 };
 
 export default function Incidents() {
+  const { data: incidentsData, isLoading } = useQuery({
+    queryKey: ["incidents"],
+    queryFn: async () => {
+      const res = await fetch(getApiUrl("api/incidents"), { credentials: "include" });
+      if (!res.ok) {
+        throw new Error("Failed to fetch incidents");
+      }
+      return res.json();
+    },
+    refetchInterval: 30000,
+  });
+  
+  const incidents = incidentsData || [];
+  
+  // Calculate statistics
+  const activeIncidents = incidents.filter((i: any) => i.status === 'open' || i.status === 'in_progress').length;
+  const resolvedIncidents = incidents.filter((i: any) => i.status === 'resolved' || i.status === 'closed').length;
+  const avgResponseTime = "2.3h"; // Could be calculated from timeline data
+  const resolutionRate = incidents.length > 0 ? Math.round((resolvedIncidents / incidents.length) * 100) : 0;
+  
   return (
     <div className="flex min-h-screen bg-background text-foreground font-sans">
       <Sidebar />
@@ -56,32 +78,38 @@ export default function Incidents() {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <Card className="bg-card/40 border-border/50 backdrop-blur-sm">
                 <CardContent className="pt-6">
-                  <div className="text-2xl font-bold font-mono">4</div>
+                  <div className="text-2xl font-bold font-mono">{activeIncidents}</div>
                   <p className="text-xs text-muted-foreground uppercase tracking-widest mt-1">Active Incidents</p>
                 </CardContent>
               </Card>
               <Card className="bg-card/40 border-border/50 backdrop-blur-sm">
                 <CardContent className="pt-6">
-                  <div className="text-2xl font-bold font-mono">28</div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-widest mt-1">Resolved (30d)</p>
+                  <div className="text-2xl font-bold font-mono">{resolvedIncidents}</div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-widest mt-1">Resolved</p>
                 </CardContent>
               </Card>
               <Card className="bg-card/40 border-border/50 backdrop-blur-sm">
                 <CardContent className="pt-6">
-                  <div className="text-2xl font-bold font-mono text-primary">2.3h</div>
+                  <div className="text-2xl font-bold font-mono text-primary">{avgResponseTime}</div>
                   <p className="text-xs text-muted-foreground uppercase tracking-widest mt-1">Avg Response Time</p>
                 </CardContent>
               </Card>
               <Card className="bg-card/40 border-border/50 backdrop-blur-sm">
                 <CardContent className="pt-6">
-                  <div className="text-2xl font-bold font-mono">94%</div>
+                  <div className="text-2xl font-bold font-mono">{resolutionRate}%</div>
                   <p className="text-xs text-muted-foreground uppercase tracking-widest mt-1">Resolution Rate</p>
                 </CardContent>
               </Card>
             </div>
 
             <div className="space-y-3">
-              {MOCK_INCIDENTS.map((incident, idx) => (
+              {isLoading ? (
+                <Card className="bg-card/40 border-border/50 backdrop-blur-sm">
+                  <CardContent className="p-8 text-center">
+                    <p className="text-muted-foreground">Loading incidents...</p>
+                  </CardContent>
+                </Card>
+              ) : incidents.length > 0 ? incidents.map((incident: any, idx: number) => (
                 <motion.div
                   key={incident.id}
                   initial={{ opacity: 0, y: 10 }}
@@ -129,7 +157,14 @@ export default function Incidents() {
                     </CardContent>
                   </Card>
                 </motion.div>
-              ))}
+              )) : (
+                <Card className="bg-card/40 border-border/50 backdrop-blur-sm">
+                  <CardContent className="p-8 text-center">
+                    <p className="text-muted-foreground">No incidents detected</p>
+                    <p className="text-xs text-muted-foreground mt-2">Upload log files to detect security incidents</p>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </div>
         </div>

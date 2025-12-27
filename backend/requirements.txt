@@ -28,3 +28,4 @@ transformers==4.35.0
 langchain
 huggingface-hub==0.16.4
 langchain-huggingface
+groq

@@ -7,6 +7,7 @@ import { Separator } from "@/components/ui/separator";
 import { AlertTriangle, BookOpen, CheckCircle, ChevronRight, ExternalLink, Shield, ShieldCheck, Zap } from "lucide-react";
 import { motion } from "framer-motion";
 import { apiRequest } from "@/lib/queryClient";
+import { getApiUrl } from "@/lib/api-config";
 
 interface AlertCardProps {
   alert: Alert;
@@ -105,17 +106,44 @@ export function AlertCard({ alert, index }: AlertCardProps) {
               variant="outline"
               onClick={async () => {
                 const payload = {
-                  defect: alert.title,
+                  defect: (alert as any).defect ?? 0,
                   event_id: alert.id,
                   source_ip: (alert as any).source ?? "0.0.0.0",
-                  endpoint: "/",
-                  query_params: {},
-                  anomaly_score: alert.anomalies?.[0]?.deviation ?? 0,
+                  endpoint: (alert as any).endpoint ?? "/",
+                  query_params: (alert as any).query_params ?? "",
+                  anomaly_score: (alert as any).anomaly_score ?? alert.anomalies?.[0]?.deviation ?? 0,
                 };
                 try {
-                  const res = await apiRequest("POST", "http://127.0.0.1:5000/api/analyze-alert", payload);
+                  const res = await apiRequest("POST", getApiUrl("api/analyze-alert"), payload);
                   const json = await res.json();
-                  alert("Analysis result:\n" + JSON.stringify(json, null, 2));
+                  
+                  // Update alert with RAG analysis results
+                  if (json.analysis) {
+                    // Create a formatted message
+                    let message = `RAG Analysis Complete!\n\n`;
+                    message += `Alert Type: ${json.alert_type}\n`;
+                    message += `Severity: ${json.severity}\n`;
+                    message += `Classification: ${json.classification}\n\n`;
+                    message += `Analysis:\n${json.analysis}\n\n`;
+                    
+                    if (json.mitigations && json.mitigations.length > 0) {
+                      message += `Mitigations:\n${json.mitigations.map((m: string, i: number) => `${i + 1}. ${m}`).join('\n')}\n\n`;
+                    }
+                    
+                    if (json.cves && json.cves.length > 0) {
+                      message += `CVEs: ${json.cves.join(', ')}\n`;
+                    }
+                    
+                    if (json.mitre_technique) {
+                      message += `MITRE Technique: ${json.mitre_technique}\n`;
+                    }
+                    
+                    alert(message);
+                  } else if (json.error) {
+                    alert(`Analysis failed: ${json.error}\n${json.details || ''}`);
+                  } else {
+                    alert("Analysis completed but no results returned.");
+                  }
                 } catch (e: any) {
                   alert("Analysis failed: " + e.message);
                 }
