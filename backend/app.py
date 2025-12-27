@@ -253,6 +253,7 @@ def analyze_alert():
         llm_context = format_chunks_for_llm(rag_retrieval['retrieved_chunks'])
         
         # Generate security analysis using LLM
+        # format_chunks_for_llm returns a string, but generate_security_analysis expects List[str]
         result = generate_security_analysis(alert=alert_payload, retrieved_context=[llm_context])
         
         # Check if result has error
