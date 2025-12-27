@@ -39,3 +39,4 @@ backend/*.pyo
 backend/*.pyd
 
 frontend/node_modules
+backend/qdrant_db/
