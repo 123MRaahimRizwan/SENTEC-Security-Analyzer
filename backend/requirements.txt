@@ -25,7 +25,5 @@ torch==2.1.0
 torchvision==0.16.0
 torchaudio==2.1.0
 transformers==4.35.0
-langchain
 huggingface-hub==0.16.4
-langchain-huggingface
 groq

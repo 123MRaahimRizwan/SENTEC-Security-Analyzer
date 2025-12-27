@@ -2,7 +2,6 @@ import os
 import json
 from groq import Groq
 from typing import Dict, List, Any
-from langchain_core.prompts import PromptTemplate
 
 # --- CONFIGURATION ---
 GROQ_API_KEY = "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"
@@ -22,9 +21,7 @@ MODEL_NAME = os.getenv("MODEL_NAME", "llama-3.1-70b-versatile")
 # A comma-separated list of fallback models to try if the primary model fails
 FALLBACK_MODELS = [m.strip() for m in os.getenv("FALLBACK_MODELS", "llama-3.1-8b-instant,mixtral-8x7b-32768,gemma2-9b-it").split(",") if m.strip()]
 
-SECURITY_ANALYSIS_PROMPT = PromptTemplate(
-    input_variables=["alert", "context"],
-    template="""
+SECURITY_ANALYSIS_PROMPT_TEMPLATE = """
 You are a senior cybersecurity analyst. Analyze the detected security alert using ONLY the provided context.
 
 ALERT DETAILS:
@@ -50,14 +47,13 @@ Output MUST be ONLY a valid JSON object (no markdown, no explanation) matching t
   "mitigations": ["string"]
 }}
 """
-)
 
 def generate_security_analysis(alert: Dict, retrieved_context: List[str]) -> Dict[str, Any]:
     """
     Generates security analysis using Groq's API (FREE & FAST).
     """
     context_text = "\n".join(retrieved_context)
-    prompt_text = SECURITY_ANALYSIS_PROMPT.format(
+    prompt_text = SECURITY_ANALYSIS_PROMPT_TEMPLATE.format(
         alert=json.dumps(alert, indent=2),
         context=context_text
     )

@@ -5,11 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { AlertTriangle, BookOpen, CheckCircle, ChevronRight, ExternalLink, Shield, ShieldCheck, Zap, Brain, Loader2 } from "lucide-react";
+import { AlertTriangle, BookOpen, CheckCircle, ChevronRight, ExternalLink, Shield, ShieldCheck, Zap, Brain, Loader2, Star } from "lucide-react";
 import { motion } from "framer-motion";
 import { apiRequest } from "@/lib/queryClient";
 import { getApiUrl } from "@/lib/api-config";
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface AlertCardProps {
   alert: Alert;
@@ -20,6 +21,9 @@ export function AlertCard({ alert, index }: AlertCardProps) {
   const [llmResponse, setLlmResponse] = useState<any>(null);
   const [loadingLlm, setLoadingLlm] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [userRating, setUserRating] = useState<number | null>(null);
+  const [submittingRating, setSubmittingRating] = useState(false);
+  const queryClient = useQueryClient();
 
   const fetchLlmResponse = async () => {
     setLoadingLlm(true);
@@ -47,6 +51,27 @@ export function AlertCard({ alert, index }: AlertCardProps) {
       setDialogOpen(true);
     } finally {
       setLoadingLlm(false);
+    }
+  };
+
+  const submitMitigationFeedback = async (rating: number) => {
+    if (submittingRating || !llmResponse) return;
+    
+    setSubmittingRating(true);
+    setUserRating(rating);
+    
+    try {
+      await apiRequest("POST", getApiUrl("api/metrics/mitigation-feedback"), {
+        alert_id: alert.id,
+        rating: rating
+      });
+      
+      // Invalidate metrics to refresh
+      queryClient.invalidateQueries({ queryKey: ["metrics"] });
+    } catch (e) {
+      console.error("Failed to submit feedback:", e);
+    } finally {
+      setSubmittingRating(false);
     }
   };
 
@@ -283,11 +308,13 @@ export function AlertCard({ alert, index }: AlertCardProps) {
                 {/* Mitigations */}
                 {llmResponse.mitigations && llmResponse.mitigations.length > 0 && (
                   <div className="bg-emerald-500/5 rounded-lg p-4 border border-emerald-500/10">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Shield className="h-4 w-4 text-emerald-500" />
-                      <h3 className="font-semibold text-foreground">Recommended Mitigations</h3>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <Shield className="h-4 w-4 text-emerald-500" />
+                        <h3 className="font-semibold text-foreground">Recommended Mitigations</h3>
+                      </div>
                     </div>
-                    <ul className="space-y-3">
+                    <ul className="space-y-3 mb-4">
                       {llmResponse.mitigations.map((mitigation: string, i: number) => (
                         <li key={i} className="flex items-start gap-3 text-sm text-foreground/90">
                           <CheckCircle className="h-4 w-4 text-emerald-500 mt-0.5 shrink-0" />
@@ -295,6 +322,38 @@ export function AlertCard({ alert, index }: AlertCardProps) {
                         </li>
                       ))}
                     </ul>
+                    {/* User Feedback Rating */}
+                    <div className="pt-3 border-t border-emerald-500/20">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-xs text-muted-foreground">Rate this analysis:</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            onClick={() => submitMitigationFeedback(star)}
+                            disabled={submittingRating}
+                            className={`transition-all ${
+                              userRating && star <= userRating
+                                ? 'text-yellow-500'
+                                : 'text-muted-foreground/30 hover:text-yellow-500/50'
+                            } ${submittingRating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:scale-110'}`}
+                            title={`Rate ${star} out of 5`}
+                          >
+                            <Star 
+                              className={`h-5 w-5 ${
+                                userRating && star <= userRating ? 'fill-current' : ''
+                              }`}
+                            />
+                          </button>
+                        ))}
+                        {userRating && (
+                          <span className="ml-2 text-xs text-muted-foreground">
+                            Rated {userRating}/5
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 )}
 

@@ -6,6 +6,7 @@ import { Menu } from "lucide-react";
 import { AlertCard } from "@/components/dashboard/AlertCard";
 import { AnomalyChart } from "@/components/dashboard/AnomalyChart";
 import { RagPipelineVisual } from "@/components/dashboard/RagPipelineVisual";
+import { PerformanceMetrics } from "@/components/dashboard/PerformanceMetrics";
 // import { MOCK_ALERTS } from "@/lib/mock-data";
 import { Bell, Search, User, Upload, FileText, Loader2, CheckCircle2, AlertCircle, ChevronDown, ChevronUp, Shield, Activity } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -25,7 +26,31 @@ export default function Dashboard() {
   const [backendConnected, setBackendConnected] = useState<boolean | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
+
+  // Sort uploaded alerts and limit to top 10
+  const TOP_ALERTS_COUNT = 10;
+  const sortedUploadedAlerts = useMemo(() => {
+    if (uploadedAlerts.length === 0) return [];
+    
+    const severityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+    const sorted = [...uploadedAlerts].sort((a, b) => {
+      // First sort by severity
+      const aSev = severityOrder[a.severity as keyof typeof severityOrder] ?? 99;
+      const bSev = severityOrder[b.severity as keyof typeof severityOrder] ?? 99;
+      if (aSev !== bSev) return aSev - bSev;
+
+      // Then by anomaly score (more negative = more dangerous)
+      const aScore = (a as any).anomaly_score ?? 0;
+      const bScore = (b as any).anomaly_score ?? 0;
+      return aScore - bScore; // More negative is more dangerous
+    });
+    
+    // Limit to top 10
+    return sorted.slice(0, TOP_ALERTS_COUNT);
+  }, [uploadedAlerts]);
   
+  const hasFewerUploadedThanTop10 = uploadedAlerts.length > 0 && uploadedAlerts.length < TOP_ALERTS_COUNT;
+
   // Check backend connection on mount
   useQuery({
     queryKey: ["backend-health"],
@@ -33,11 +58,11 @@ export default function Dashboard() {
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
-        
+
         const healthUrl = getApiUrl("api/health");
         console.log("[DEBUG] Checking backend health at:", healthUrl);
-        
-        const res = await fetch(healthUrl, { 
+
+        const res = await fetch(healthUrl, {
           method: "GET",
           credentials: "include",
           signal: controller.signal,
@@ -45,11 +70,11 @@ export default function Dashboard() {
             "Accept": "application/json",
           }
         });
-        
+
         clearTimeout(timeoutId);
-        
+
         console.log("[DEBUG] Health check response:", res.status, res.statusText);
-        
+
         if (res.ok) {
           const data = await res.json();
           console.log("[DEBUG] Backend is healthy:", data);
@@ -76,26 +101,26 @@ export default function Dashboard() {
     retryDelay: 2000,
     refetchInterval: 30000, // Check every 30 seconds
   });
-  
+
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => {
       const formData = new FormData();
       formData.append('file', file);
-      
+
       try {
         // Create abort controller for timeout
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 minutes timeout
-        
+
         const res = await fetch(getApiUrl("api/upload-logs"), {
           method: "POST",
           body: formData,
           credentials: "include",
           signal: controller.signal,
         });
-        
+
         clearTimeout(timeoutId);
-        
+
         if (!res.ok) {
           let error;
           try {
@@ -107,7 +132,7 @@ export default function Dashboard() {
           const details = error.details || error.found_columns || error.required_columns || '';
           throw new Error(details ? `${errorMessage}\n\nDetails: ${JSON.stringify(details, null, 2)}` : errorMessage);
         }
-        
+
         const data = await res.json();
         return data;
       } catch (error: any) {
@@ -122,9 +147,8 @@ export default function Dashboard() {
     onSuccess: (data) => {
       // Store upload data persistently
       setUploadedFileData(data);
-      setHasUploadedData(true); // Enable data fetching
-      setUploadStatus({ 
-        type: 'success', 
+      setUploadStatus({
+        type: 'success',
         message: `Successfully analyzed ${data.filename}. Found ${data.anomalies_detected} anomalies out of ${data.total_events} events.`,
         data: data
       });
@@ -188,7 +212,7 @@ export default function Dashboard() {
       setTimeout(() => setUploadStatus({ type: 'idle' }), 5000);
     },
   });
-  
+
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
@@ -200,11 +224,8 @@ export default function Dashboard() {
       fileInputRef.current.value = '';
     }
   };
-  
-  // Don't auto-restore data on page load - user must upload a file to see data
 
-  // Track if user has uploaded data in this session
-  const [hasUploadedData, setHasUploadedData] = useState(false);
+  // Don't auto-restore data on page load - user must upload a file to see data
 
   const { data: alertsData, isLoading: alertsLoading } = useQuery({
     queryKey: ["alerts"],
@@ -246,14 +267,12 @@ export default function Dashboard() {
         anomaly_score: alert.anomaly_score
       }));
     },
-    enabled: hasUploadedData, // Only fetch after user uploads data
-    refetchInterval: hasUploadedData ? 30000 : false, // Only refetch if data was uploaded
+    refetchInterval: 30000,
   });
   // const alerts = alertsData ?? MOCK_ALERTS;
   const alerts = alertsData ?? [];
-  
+
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
-  const [visibleAlertsCount, setVisibleAlertsCount] = useState(10); // Show top 10 initially
 
   // Sort all alerts by danger level (severity + anomaly score)
   const sortedAlerts = useMemo(() => {
@@ -263,7 +282,7 @@ export default function Dashboard() {
       const aSev = severityOrder[a.severity as keyof typeof severityOrder] ?? 99;
       const bSev = severityOrder[b.severity as keyof typeof severityOrder] ?? 99;
       if (aSev !== bSev) return aSev - bSev;
-      
+
       // Then by anomaly score (more negative = more dangerous)
       const aScore = (a as any).anomaly_score ?? 0;
       const bScore = (b as any).anomaly_score ?? 0;
@@ -271,16 +290,19 @@ export default function Dashboard() {
     });
   }, [alerts]);
 
-  // Get top N most dangerous alerts
+  // Always show top 10 alerts (or all if fewer than 10)
   const topAlerts = useMemo(() => {
-    return sortedAlerts.slice(0, visibleAlertsCount);
-  }, [sortedAlerts, visibleAlertsCount]);
+    return sortedAlerts.slice(0, TOP_ALERTS_COUNT);
+  }, [sortedAlerts]);
+  
+  // Check if we have fewer than 10 alerts
+  const hasFewerThanTop10 = sortedAlerts.length > 0 && sortedAlerts.length < TOP_ALERTS_COUNT;
 
   // Group only the visible alerts by attack type for better organization
   const groupedAlerts = useMemo(() => {
     const groups: Record<string, typeof topAlerts> = {};
     const severityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
-    
+
     topAlerts.forEach(alert => {
       const attackType = (alert as any).attack_type || alert.title.split(' ')[0] || 'Unknown';
       if (!groups[attackType]) {
@@ -288,7 +310,7 @@ export default function Dashboard() {
       }
       groups[attackType].push(alert);
     });
-    
+
     // Sort each group by severity
     Object.keys(groups).forEach(key => {
       groups[key].sort((a, b) => {
@@ -297,7 +319,7 @@ export default function Dashboard() {
         return aSev - bSev;
       });
     });
-    
+
     // Sort groups by total count and highest severity
     const sortedGroups = Object.entries(groups).sort(([aKey, aAlerts], [bKey, bAlerts]) => {
       const aMaxSev = Math.min(...aAlerts.map(a => severityOrder[a.severity as keyof typeof severityOrder] ?? 99));
@@ -305,7 +327,7 @@ export default function Dashboard() {
       if (aMaxSev !== bMaxSev) return aMaxSev - bMaxSev;
       return bAlerts.length - aAlerts.length;
     });
-    
+
     return sortedGroups;
   }, [topAlerts]);
 
@@ -333,8 +355,8 @@ export default function Dashboard() {
           <div className="flex-1 flex justify-center">
             <div className="relative w-full max-w-md">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input 
-                placeholder="Search logs, IPs, or threat IDs..." 
+              <Input
+                placeholder="Search logs, IPs, or threat IDs..."
                 className="pl-9 bg-secondary/50 border-border/50 focus:border-primary/50 focus:ring-primary/20 h-9 font-mono text-sm"
               />
             </div>
@@ -371,7 +393,7 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
             )}
-            
+
             {/* Top Section: Metrics & Pipeline Visual */}
             <div className="space-y-6">
               <div className="flex items-center justify-between">
@@ -406,11 +428,10 @@ export default function Dashboard() {
                     )}
                   </Button>
                   {uploadStatus.type !== 'idle' && (
-                    <Card className={`border ${
-                      uploadStatus.type === 'success' ? 'border-emerald-500/50 bg-emerald-500/10' :
-                      uploadStatus.type === 'error' ? 'border-destructive/50 bg-destructive/10' :
-                      'border-primary/50 bg-primary/10'
-                    }`}>
+                    <Card className={`border ${uploadStatus.type === 'success' ? 'border-emerald-500/50 bg-emerald-500/10' :
+                        uploadStatus.type === 'error' ? 'border-destructive/50 bg-destructive/10' :
+                          'border-primary/50 bg-primary/10'
+                      }`}>
                       <CardContent className="p-3 flex items-center gap-2 text-sm">
                         {uploadStatus.type === 'success' && <CheckCircle2 className="h-4 w-4 text-emerald-500" />}
                         {uploadStatus.type === 'error' && <AlertCircle className="h-4 w-4 text-destructive" />}
@@ -424,33 +445,37 @@ export default function Dashboard() {
                 </div>
               </div>
               <RagPipelineVisual />
+              
+              {/* Performance Metrics */}
+              <PerformanceMetrics />
+              
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[400px]">
                 <div className="lg:col-span-2 h-full">
-                  <AnomalyChart enabled={hasUploadedData} />
+                  <AnomalyChart enabled={true} />
                 </div>
                 <div className="space-y-4">
-                   <div className="bg-card/40 border border-border p-6 rounded-lg backdrop-blur-sm h-full flex flex-col justify-center">
-                      <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-widest mb-4">System Health</h3>
-                      <div className="space-y-6">
-                        <div className="flex justify-between items-end">
-                           <span className="text-4xl font-mono font-bold text-foreground">98.2%</span>
-                           <span className="text-sm text-emerald-500 font-medium mb-1">Operational</span>
+                  <div className="bg-card/40 border border-border p-6 rounded-lg backdrop-blur-sm h-full flex flex-col justify-center">
+                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-widest mb-4">System Health</h3>
+                    <div className="space-y-6">
+                      <div className="flex justify-between items-end">
+                        <span className="text-4xl font-mono font-bold text-foreground">98.2%</span>
+                        <span className="text-sm text-emerald-500 font-medium mb-1">Operational</span>
+                      </div>
+                      <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
+                        <div className="h-full bg-emerald-500 w-[98.2%]"></div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border/50">
+                        <div>
+                          <p className="text-xs text-muted-foreground">Active Threats</p>
+                          <p className="text-2xl font-mono font-bold text-destructive">3</p>
                         </div>
-                        <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
-                           <div className="h-full bg-emerald-500 w-[98.2%]"></div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border/50">
-                           <div>
-                              <p className="text-xs text-muted-foreground">Active Threats</p>
-                              <p className="text-2xl font-mono font-bold text-destructive">3</p>
-                           </div>
-                           <div>
-                              <p className="text-xs text-muted-foreground">Analyzed Events</p>
-                              <p className="text-2xl font-mono font-bold text-primary">1.2M</p>
-                           </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Analyzed Events</p>
+                          <p className="text-2xl font-mono font-bold text-primary">1.2M</p>
                         </div>
                       </div>
-                   </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -469,7 +494,6 @@ export default function Dashboard() {
                       setUploadedAlerts([]);
                       setUploadedFileData(null);
                       setUploadStatus({ type: 'idle' });
-                      setHasUploadedData(false); // Disable data fetching
                       // Also clear backend data
                       try {
                         await fetch(getApiUrl("api/clear-all-data"), {
@@ -536,10 +560,22 @@ export default function Dashboard() {
                   </CardContent>
                 </Card>
                 {uploadedAlerts.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                    {uploadedAlerts.map((alert, index) => (
-                      <AlertCard key={`upload-${alert.id}`} alert={alert} index={index} />
-                    ))}
+                  <div className="space-y-4">
+                    {hasFewerUploadedThanTop10 && (
+                      <div className="text-xs text-muted-foreground text-center p-2 bg-orange-500/10 border border-orange-500/20 rounded">
+                        Showing {uploadedAlerts.length} alert{uploadedAlerts.length !== 1 ? 's' : ''} (less than {TOP_ALERTS_COUNT} available)
+                      </div>
+                    )}
+                    {uploadedAlerts.length > TOP_ALERTS_COUNT && (
+                      <div className="text-xs text-muted-foreground text-center p-2 bg-card/40 border border-border/50 rounded">
+                        Showing top {TOP_ALERTS_COUNT} most dangerous alerts out of {uploadedAlerts.length} total
+                      </div>
+                    )}
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                      {sortedUploadedAlerts.map((alert, index) => (
+                        <AlertCard key={`upload-${alert.id}`} alert={alert} index={index} />
+                      ))}
+                    </div>
                   </div>
                 ) : (
                   <Card className="bg-card/40 border-border/50">
@@ -551,54 +587,41 @@ export default function Dashboard() {
                 )}
               </div>
             )}
-            
+
             {/* Critical Alerts Section - Grouped */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                 <h3 className="text-xl font-display font-semibold flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-destructive animate-pulse"></span>
-                    Security Alerts
-                 </h3>
-                 <div className="flex items-center gap-4">
-                   <span className="text-xs font-mono text-muted-foreground">
-                     Showing {Math.min(visibleAlertsCount, sortedAlerts.length)} of {sortedAlerts.length} alert{sortedAlerts.length !== 1 ? 's' : ''} • {groupedAlerts.length} type{groupedAlerts.length !== 1 ? 's' : ''}
-                   </span>
-                   <div className="flex items-center gap-2">
-                     <Button
-                       variant="ghost"
-                       size="sm"
-                       onClick={() => {
-                         if (expandedGroups.size === groupedAlerts.length) {
-                           setExpandedGroups(new Set());
-                         } else {
-                           setExpandedGroups(new Set(groupedAlerts.map(([key]) => key)));
-                         }
-                       }}
-                       className="text-xs"
-                     >
-                       {expandedGroups.size === groupedAlerts.length ? 'Collapse All' : 'Expand All'}
-                     </Button>
-                   </div>
-                 </div>
-              </div>
-              
-              {!hasUploadedData ? (
-                <Card className="bg-card/40 border-border/50">
-                  <CardContent className="p-8 text-center space-y-3">
-                    <Upload className="h-12 w-12 text-muted-foreground mx-auto opacity-50" />
-                    <p className="text-muted-foreground font-medium">No data uploaded yet</p>
-                    <p className="text-xs text-muted-foreground">Upload a CSV or JSON log file to begin security analysis</p>
+                <h3 className="text-xl font-display font-semibold flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-destructive animate-pulse"></span>
+                  Security Alerts
+                </h3>
+                <div className="flex items-center gap-4">
+                  <span className="text-xs font-mono text-muted-foreground">
+                    Showing {topAlerts.length} of {sortedAlerts.length} alert{sortedAlerts.length !== 1 ? 's' : ''} • {groupedAlerts.length} type{groupedAlerts.length !== 1 ? 's' : ''}
+                    {hasFewerThanTop10 && (
+                      <span className="ml-2 text-orange-500">(Less than {TOP_ALERTS_COUNT} alerts available)</span>
+                    )}
+                  </span>
+                  <div className="flex items-center gap-2">
                     <Button
-                      onClick={() => fileInputRef.current?.click()}
-                      className="mt-4"
-                      variant="outline"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        if (expandedGroups.size === groupedAlerts.length) {
+                          setExpandedGroups(new Set());
+                        } else {
+                          setExpandedGroups(new Set(groupedAlerts.map(([key]) => key)));
+                        }
+                      }}
+                      className="text-xs"
                     >
-                      <Upload className="h-4 w-4 mr-2" />
-                      Upload Log File
+                      {expandedGroups.size === groupedAlerts.length ? 'Collapse All' : 'Expand All'}
                     </Button>
-                  </CardContent>
-                </Card>
-              ) : alertsLoading ? (
+                  </div>
+                </div>
+              </div>
+
+              {alertsLoading ? (
                 <Card className="bg-card/40 border-border/50">
                   <CardContent className="p-8 text-center">
                     <p className="text-muted-foreground">Loading alerts...</p>
@@ -627,7 +650,7 @@ export default function Dashboard() {
                       return { bg: 'bg-muted/10', text: 'text-muted-foreground', border: 'border-border/20' };
                     };
                     const severityStyles = getSeverityStyles(maxSeverity);
-                    
+
                     return (
                       <Collapsible
                         key={attackType}
@@ -700,20 +723,27 @@ export default function Dashboard() {
                       </Collapsible>
                     );
                   })}
+
+                  {/* Message when fewer than 10 alerts */}
+                  {hasFewerThanTop10 && (
+                    <Card className="bg-card/40 border-orange-500/20 backdrop-blur-sm">
+                      <CardContent className="p-4 text-center">
+                        <p className="text-sm text-orange-500 font-medium">
+                          Note: Only {sortedAlerts.length} alert{sortedAlerts.length !== 1 ? 's' : ''} available (showing all)
+                        </p>
+                      </CardContent>
+                    </Card>
+                  )}
                   
-                  {/* Show More Button */}
-                  {visibleAlertsCount < sortedAlerts.length && (
+                  {/* Show More Button - Only show if there are more than 10 alerts */}
+                  {sortedAlerts.length > TOP_ALERTS_COUNT && (
                     <Card className="bg-card/40 border-border/50 backdrop-blur-sm">
                       <CardContent className="p-6 text-center">
-                        <Button
-                          variant="outline"
-                          onClick={() => setVisibleAlertsCount(prev => Math.min(prev + 10, sortedAlerts.length))}
-                          className="w-full sm:w-auto"
-                        >
-                          Show More ({Math.min(10, sortedAlerts.length - visibleAlertsCount)} more)
-                        </Button>
-                        <p className="text-xs text-muted-foreground mt-2">
-                          Showing top {visibleAlertsCount} most dangerous alerts
+                        <p className="text-xs text-muted-foreground mb-2">
+                          Showing top {TOP_ALERTS_COUNT} most dangerous alerts out of {sortedAlerts.length} total
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Use filters or search to explore additional alerts
                         </p>
                       </CardContent>
                     </Card>
