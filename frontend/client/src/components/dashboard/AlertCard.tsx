@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Separator } from "@/components/ui/separator";
 import { AlertTriangle, BookOpen, CheckCircle, ChevronRight, ExternalLink, Shield, ShieldCheck, Zap } from "lucide-react";
 import { motion } from "framer-motion";
+import { apiRequest } from "@/lib/queryClient";
 
 interface AlertCardProps {
   alert: Alert;
@@ -98,10 +99,36 @@ export function AlertCard({ alert, index }: AlertCardProps) {
         </CardContent>
 
         <CardFooter className="pt-2 pb-4 bg-muted/20 border-t border-border/50">
-          <Button className="w-full bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 hover:border-primary/50" variant="outline">
-            Initiate Response Playbook
-            <ChevronRight className="ml-2 h-4 w-4" />
-          </Button>
+          <div className="flex gap-2 w-full">
+            <Button
+              className="flex-1 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 hover:border-primary/50"
+              variant="outline"
+              onClick={async () => {
+                const payload = {
+                  defect: alert.title,
+                  event_id: alert.id,
+                  source_ip: (alert as any).source ?? "0.0.0.0",
+                  endpoint: "/",
+                  query_params: {},
+                  anomaly_score: alert.anomalies?.[0]?.deviation ?? 0,
+                };
+                try {
+                  const res = await apiRequest("POST", "http://127.0.0.1:5000/api/analyze-alert", payload);
+                  const json = await res.json();
+                  alert("Analysis result:\n" + JSON.stringify(json, null, 2));
+                } catch (e: any) {
+                  alert("Analysis failed: " + e.message);
+                }
+              }}
+            >
+              Analyze with RAG
+            </Button>
+
+            <Button className="flex-1 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 hover:border-primary/50" variant="outline">
+              Initiate Response Playbook
+              <ChevronRight className="ml-2 h-4 w-4" />
+            </Button>
+          </div>
         </CardFooter>
       </Card>
     </motion.div>

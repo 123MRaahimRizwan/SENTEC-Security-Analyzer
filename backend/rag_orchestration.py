@@ -14,7 +14,9 @@ Step-by-step explanation:
 - We return top-k chunks with metadata for LLM context
 """
 
-from setup_vector_db import get_client, embedding_model, COLLECTION_NAME
+# Delay importing heavy vector/embedding dependencies until actually needed
+# (they pull in `sentence_transformers` / `transformers` which enforce
+# strict dependency versions). We'll import them inside functions.
 from typing import Dict, List, Any
 
 # ============================================================================
@@ -162,7 +164,8 @@ def search_chunks(query_text: str, top_k: int = 5, score_threshold: float = 0.3)
         ]
     """
     
-    # Step 3.1: Get the Qdrant client (from setup_vector_db)
+    # Step 3.1: Get the Qdrant client (import lazily to avoid heavy deps at module import)
+    from setup_vector_db import get_client, embedding_model, COLLECTION_NAME
     client = get_client()
     
     # Step 3.2: Check if client exists and collection is ready
@@ -176,9 +179,7 @@ def search_chunks(query_text: str, top_k: int = 5, score_threshold: float = 0.3)
         print(f"Collection '{COLLECTION_NAME}' not found. Setting up vector database...")
         ensure_collection_exists()
     
-    # Step 3.3: Convert query text to embedding vector
-    # This uses the same embedding model that was used to store chunks
-    # The embedding is a numerical representation of the text meaning
+    # Step 3.3: Convert query text to embedding vector using the embedding model
     query_embedding = embedding_model.encode(query_text).tolist()
     
     # Step 3.4: Search Qdrant for similar chunks

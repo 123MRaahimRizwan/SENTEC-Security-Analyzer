@@ -1,103 +1,183 @@
-from typing import Dict, List
+import os
 import json
-
-from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
-from langchain_huggingface import HuggingFacePipeline
+from groq import Groq
+from typing import Dict, List, Any
 from langchain_core.prompts import PromptTemplate
-from langchain_huggingface import HuggingFaceEndpoint
 
+# --- CONFIGURATION ---
+GROQ_API_KEY = "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"
 
-MODEL_NAME = "mistralai/Mistral-7B-Instruct-v0.2"
+if not GROQ_API_KEY:
+    raise ValueError("Error: GROQ_API_KEY environment variable is not set. Get one at: https://console.groq.com")
 
-MAX_TOKENS = 512
-TEMPERATURE = 0.2
+# Initialize Groq client
+client = Groq(api_key=GROQ_API_KEY)
 
-llm = HuggingFaceEndpoint(
-    repo_id="mistralai/Mistral-7B-Instruct-v0.2",
-    huggingfacehub_api_token='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',
-    max_new_tokens=512,
-    temperature=0.2
-)
+# Available FREE models on Groq:
+# - "llama-3.1-70b-versatile" (best for complex tasks)
+# - "llama-3.1-8b-instant" (fastest)
+# - "mixtral-8x7b-32768" (good balance)
+# - "gemma2-9b-it" (efficient)
+MODEL_NAME = os.getenv("MODEL_NAME", "llama-3.1-70b-versatile")
+# A comma-separated list of fallback models to try if the primary model fails
+FALLBACK_MODELS = [m.strip() for m in os.getenv("FALLBACK_MODELS", "llama-3.1-8b-instant,mixtral-8x7b-32768,gemma2-9b-it").split(",") if m.strip()]
 
 SECURITY_ANALYSIS_PROMPT = PromptTemplate(
     input_variables=["alert", "context"],
     template="""
-You are a senior cybersecurity analyst.
-
-Analyze the detected security alert using ONLY the provided context.
+You are a senior cybersecurity analyst. Analyze the detected security alert using ONLY the provided context.
 
 ALERT DETAILS:
 {alert}
 
-RETRIEVED CONTEXT (CVE / CWE / MITRE / Security Policy):
+RETRIEVED CONTEXT:
 {context}
 
-RULES:
-- Do NOT invent vulnerabilities or references
-- Use only the supplied context
-- Cite CVE, CWE, and MITRE IDs explicitly
-- Follow security policy constraints if present
-- Output MUST be valid JSON
+INSTRUCTIONS:
+1. Analyze the relationship between the alert and the context.
+2. Determine if this is a True Positive or False Positive based on the context.
+3. Assign a severity level.
+4. List specific MITRE techniques and CVEs if applicable.
 
-OUTPUT FORMAT:
+Output MUST be ONLY a valid JSON object (no markdown, no explanation) matching this schema:
 {{
-  "alert_type": "...",
+  "alert_type": "string",
   "severity": "Low | Medium | High | Critical",
-  "analysis": "...",
-  "mitre_technique": "...",
-  "cves": ["CVE-XXXX-XXXX"],
-  "cwe": "CWE-XX",
-  "mitigations": [
-    "...",
-    "..."
-  ],
-  "citations": [
-    "CVE-XXXX-XXXX",
-    "CWE-XX",
-    "MITRE-TXXXX"
-  ]
+  "classification": "True Positive | False Positive",
+  "analysis": "string",
+  "mitre_technique": "string",
+  "cves": ["string"],
+  "mitigations": ["string"]
 }}
 """
 )
 
-def generate_security_analysis(
-    alert: Dict,
-    retrieved_context: List[str]
-) -> Dict:
-
-    context_text = "\n\n".join(retrieved_context)
-
-    prompt = SECURITY_ANALYSIS_PROMPT.format(
+def generate_security_analysis(alert: Dict, retrieved_context: List[str]) -> Dict[str, Any]:
+    """
+    Generates security analysis using Groq's API (FREE & FAST).
+    """
+    context_text = "\n".join(retrieved_context)
+    prompt_text = SECURITY_ANALYSIS_PROMPT.format(
         alert=json.dumps(alert, indent=2),
         context=context_text
     )
 
-    raw_response = llm.invoke(prompt)
+    def _call_model(model_name: str):
+        print(f"Calling Groq API with model: {model_name}")
+        response = client.chat.completions.create(
+            model=model_name,
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a cybersecurity expert. Always respond with valid JSON only."
+                },
+                {
+                    "role": "user",
+                    "content": prompt_text
+                }
+            ],
+            temperature=0.2,
+            max_tokens=1024,
+            response_format={"type": "json_object"}
+        )
 
-    try:
-        # Extract JSON safely
-        response_text = raw_response.strip()
-        parsed_response = json.loads(response_text)
-        return parsed_response
+        result_text = response.choices[0].message.content
+        # Clean up any markdown formatting if present
+        result_text = result_text.strip()
+        if result_text.startswith("```json"):
+            result_text = result_text[7:]
+        if result_text.endswith("```"):
+            result_text = result_text[:-3]
+        result_text = result_text.strip()
+        return result_text
 
-    except json.JSONDecodeError:
-        return {
-            "error": "LLM output was not valid JSON",
-            "raw_response": raw_response
-        }
+    models_to_try = [MODEL_NAME] + [m for m in FALLBACK_MODELS if m != MODEL_NAME]
 
-def build_alert_payload(
-    event_id: str,
-    detected_type: str,
-    source_ip: str,
-    endpoint: str
-) -> Dict:
-    """
-    Normalizes alert data before sending to the LLM.
-    """
+    last_exception = None
+    last_raw = None
+    for model in models_to_try:
+        try:
+            result_text = _call_model(model)
+            return json.loads(result_text)
+        except json.JSONDecodeError as e:
+            last_exception = e
+            last_raw = result_text if 'result_text' in locals() else None
+            return {
+                "error": "JSON Parse Error",
+                "details": str(e),
+                "raw_response": last_raw or "N/A",
+                "model": model
+            }
+        except Exception as e:
+            # Capture the exception and examine message for common cases (decommissioned, 404, etc.)
+            msg = str(e)
+            last_exception = e
+            print(f"Model {model} failed: {msg}")
+
+            if "decommissioned" in msg.lower() or "model_decommissioned" in msg.lower() or "not supported" in msg.lower():
+                print(f"Model {model} appears decommissioned. Trying next fallback model if available.")
+                # Continue to next fallback model
+                continue
+            if "404" in msg or "not found" in msg.lower():
+                print("Model not found (404). Listing available models to help choose a replacement:")
+                try:
+                    list_available_models()
+                except Exception:
+                    pass
+                return {
+                    "error": "Model Not Found",
+                    "details": msg,
+                    "model": model
+                }
+            # For other errors, try next fallback; if none left, return error details
+            last_raw = None
+            continue
+
+    # If we reach here, no model succeeded
+    details = str(last_exception) if last_exception else "No models attempted"
     return {
-        "event_id": event_id,
-        "detected_type": detected_type,
-        "source_ip": source_ip,
-        "endpoint": endpoint
+        "error": "Groq API Error",
+        "details": details,
+        "raw_response": last_raw or "N/A",
+        "tried_models": models_to_try
     }
+
+def list_available_models():
+    """
+    List available Groq models.
+    """
+    try:
+        models = client.models.list()
+        print("Available Groq models:")
+        for model in models.data:
+            print(f"  - {model.id}")
+    except Exception as e:
+        print(f"Error listing models: {e}")
+
+# --- MAIN EXECUTION ---
+if __name__ == "__main__":
+    # Uncomment to see available models:
+    # list_available_models()
+    # exit()
+    
+    sample_alert = {
+        "event_id": "EVT-2024-001",
+        "detected_type": "SQL Injection Attempt",
+        "source_ip": "192.168.1.100",
+        "endpoint": "/api/login",
+        "timestamp": "2024-12-26T10:30:00Z"
+    }
+    
+    sample_context = [
+        "CVE-2024-1234: Critical SQL injection vulnerability in login handler",
+        "MITRE T1190: Exploit Public-Facing Application",
+        "Previous incidents: 3 SQL injection attempts from this IP range in the last 24 hours"
+    ]
+    
+    print(f"Generating security analysis using Groq ({MODEL_NAME})...")
+    print("=" * 60)
+    
+    result = generate_security_analysis(sample_alert, sample_context)
+    
+    print("\n--- Analysis Result ---")
+    print(json.dumps(result, indent=2))

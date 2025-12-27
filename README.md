@@ -254,55 +254,8 @@ cd frontend
 npm install
 
 # Run the development server
-npm run dev
+npm run dev:client
 ```
-
-The frontend will start at: **http://localhost:5173**
-
-## API Endpoints
-
-| Method | Endpoint       | Description                    |
-|--------|----------------|--------------------------------|
-| GET    | `/api/alerts`  | Returns list of security alerts |
-
-### Sample Response
-
-```json
-[
-  {
-    "id": 1,
-    "type": "SQL Injection",
-    "severity": "Critical",
-    "mitigation": "Block IP 192.168.1.5"
-  }
-]
-```
-
-## Available Scripts
-
-## Frontend
-
-### Setup & Development
-
-1. Navigate to the `frontend` folder:
-  ```sh
-  cd frontend
-  ```
-2. Install dependencies:
-  ```sh
-  npm install
-  ```
-3. Start the development server:
-  ```sh
-  npm run dev:client
-  ```
-
-...existing code...
-|-------------------|--------------------------------|
-| `npm run dev`     | Start development server       |
-| `npm run build`   | Build for production           |
-| `npm run preview` | Preview production build       |
-| `npm run lint`    | Run ESLint                     |
 
 ### Backend
 
@@ -319,12 +272,12 @@ The frontend will start at: **http://localhost:5173**
 ## Troubleshooting
 
 ### CORS Errors
-Make sure the Flask backend is running and CORS is properly configured for `localhost:5173`.
+Make sure the Flask backend is running and CORS is properly configured for `localhost:5000`.
 
 
 ### Port Already in Use
 - Backend default: `5000` - Change in `app.py`
-- Frontend default: `5173` - Change in `vite.config.js`
+- Frontend default: `5000` - Change in `vite.config.js`
 
 ---
 

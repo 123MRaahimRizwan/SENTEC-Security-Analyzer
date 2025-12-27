@@ -1,6 +1,7 @@
 
 import { Sidebar } from "@/components/layout/Sidebar";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Menu } from "lucide-react";
 import { AlertCard } from "@/components/dashboard/AlertCard";
 import { AnomalyChart } from "@/components/dashboard/AnomalyChart";
@@ -12,6 +13,19 @@ import generatedImage from '@assets/generated_images/dark_cybersecurity_backgrou
 
 export default function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const { data: alertsData } = useQuery({
+    queryKey: ["http://127.0.0.1:5000/api/alerts"],
+    queryFn: async () => {
+      const res = await fetch("http://127.0.0.1:5000/api/alerts", { credentials: "include" });
+      if (!res.ok) {
+        const txt = (await res.text()) || res.statusText;
+        throw new Error(`${res.status}: ${txt}`);
+      }
+      return res.json();
+    },
+  });
+  const alerts = alertsData ?? MOCK_ALERTS;
+
   return (
     <div className="flex min-h-screen bg-background text-foreground font-sans selection:bg-primary/20 selection:text-primary">
       {/* Always show the toggle button, even when sidebar is closed */}
@@ -102,7 +116,7 @@ export default function Dashboard() {
                  <span className="text-xs font-mono text-muted-foreground">Prioritized by LLM Analysis</span>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {MOCK_ALERTS.map((alert, index) => (
+                {alerts.map((alert, index) => (
                   <AlertCard key={alert.id} alert={alert} index={index} />
                 ))}
               </div>
