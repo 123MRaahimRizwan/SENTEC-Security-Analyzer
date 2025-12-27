@@ -4,9 +4,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { MOCK_ASSETS } from "@/lib/mock-data";
+// import { MOCK_ASSETS } from "@/lib/mock-data";
 import { Search, AlertTriangle, CheckCircle, AlertCircle, Zap } from "lucide-react";
 import { motion } from "framer-motion";
+import { useQuery } from "@tanstack/react-query";
+import { getApiUrl } from "@/lib/api-config";
 import generatedImage from '@assets/generated_images/dark_cybersecurity_background_texture.png';
 
 const statusIcons = {
@@ -29,9 +31,22 @@ const typeColors = {
 };
 
 export default function Assets() {
-  const criticalCount = MOCK_ASSETS.filter(a => a.status === 'critical').length;
-  const warningCount = MOCK_ASSETS.filter(a => a.status === 'warning').length;
-  const healthyCount = MOCK_ASSETS.filter(a => a.status === 'healthy').length;
+  const { data: assetsData, isLoading } = useQuery({
+    queryKey: ["assets"],
+    queryFn: async () => {
+      const res = await fetch(getApiUrl("api/assets"), { credentials: "include" });
+      if (!res.ok) {
+        throw new Error("Failed to fetch assets");
+      }
+      return res.json();
+    },
+    refetchInterval: 30000,
+  });
+  
+  const assets = assetsData || [];
+  const criticalCount = assets.filter((a: any) => a.status === 'critical').length;
+  const warningCount = assets.filter((a: any) => a.status === 'warning').length;
+  const healthyCount = assets.filter((a: any) => a.status === 'healthy').length;
 
   return (
     <div className="flex min-h-screen bg-background text-foreground font-sans">
@@ -72,7 +87,7 @@ export default function Assets() {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <Card className="bg-card/40 border-border/50 backdrop-blur-sm">
                 <CardContent className="pt-6">
-                  <div className="text-2xl font-bold font-mono">{MOCK_ASSETS.length}</div>
+                  <div className="text-2xl font-bold font-mono">{assets.length}</div>
                   <p className="text-xs text-muted-foreground uppercase tracking-widest mt-1">Total Assets</p>
                 </CardContent>
               </Card>
@@ -97,7 +112,13 @@ export default function Assets() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {MOCK_ASSETS.map((asset, idx) => (
+              {isLoading ? (
+                <Card className="bg-card/40 border-border/50 backdrop-blur-sm col-span-2">
+                  <CardContent className="p-8 text-center">
+                    <p className="text-muted-foreground">Loading assets...</p>
+                  </CardContent>
+                </Card>
+              ) : assets.length > 0 ? assets.map((asset: any, idx: number) => (
                 <motion.div
                   key={asset.id}
                   initial={{ opacity: 0, y: 10 }}
@@ -119,6 +140,9 @@ export default function Assets() {
                           <h3 className="text-base font-semibold text-foreground group-hover:text-primary transition-colors">
                             {asset.name}
                           </h3>
+                          {asset.ip && (
+                            <p className="text-xs font-mono text-muted-foreground mt-1">IP: {asset.ip}</p>
+                          )}
                         </div>
                         <div>
                           {statusIcons[asset.status]}
@@ -159,7 +183,14 @@ export default function Assets() {
                     </CardContent>
                   </Card>
                 </motion.div>
-              ))}
+              )) : (
+                <Card className="bg-card/40 border-border/50 backdrop-blur-sm col-span-2">
+                  <CardContent className="p-8 text-center">
+                    <p className="text-muted-foreground">No assets detected</p>
+                    <p className="text-xs text-muted-foreground mt-2">Upload log files to analyze assets</p>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </div>
         </div>

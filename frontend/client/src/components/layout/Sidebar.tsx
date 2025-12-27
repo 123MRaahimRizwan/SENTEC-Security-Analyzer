@@ -28,19 +28,21 @@ export function Sidebar() {
 
       <nav className="flex-1 px-4 py-6 space-y-2">
         {navItems.map((item) => (
-          <Link key={item.href} href={item.href}>
-            <a className={cn(
-              "flex items-center gap-3 px-4 py-3 rounded-md text-sm font-medium transition-all duration-200 group",
+          <Link 
+            key={item.href} 
+            href={item.href}
+            className={cn(
+              "flex items-center gap-3 px-4 py-3 rounded-md text-sm font-medium transition-all duration-200 group block",
               location === item.href 
                 ? "bg-sidebar-accent text-primary border-r-2 border-primary" 
                 : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-            )}>
-              <item.icon className={cn(
-                "h-5 w-5 transition-colors",
-                location === item.href ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
-              )} />
-              {item.label}
-            </a>
+            )}
+          >
+            <item.icon className={cn(
+              "h-5 w-5 transition-colors",
+              location === item.href ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+            )} />
+            {item.label}
           </Link>
         ))}
       </nav>
