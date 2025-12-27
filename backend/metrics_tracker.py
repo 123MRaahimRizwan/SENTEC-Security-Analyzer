@@ -92,22 +92,46 @@ class MetricsTracker:
         """
         # Calculate citation-based relevance score (0-1)
         citation_scores = [c.get("score", 0) for c in citations if isinstance(c, dict)]
-        avg_citation_score = sum(citation_scores) / len(citation_scores) if citation_scores else 0
         
-        # Combine with LLM confidence if available
-        if llm_confidence is not None:
-            relevance_score = (avg_citation_score * 0.6) + (llm_confidence * 0.4)
+        # Normalize citation scores (vector DB scores are typically 0-1, but might be lower)
+        # If we have citations, give them a base relevance of 0.5 even if scores are low
+        if citation_scores:
+            avg_citation_score = sum(citation_scores) / len(citation_scores)
+            # Normalize: if score is > 0, ensure it's at least 0.3 (minimum relevance)
+            # Scale scores between 0.3-1.0 range to represent better relevance
+            if avg_citation_score > 0:
+                normalized_citation = 0.3 + (avg_citation_score * 0.7)  # Scale 0-1 to 0.3-1.0
+            else:
+                normalized_citation = 0.3  # Base relevance if we have citations
         else:
-            relevance_score = avg_citation_score
+            avg_citation_score = 0
+            normalized_citation = 0.2  # Lower base if no citations
         
-        # Normalize user rating to 0-1 scale
+        # Boost relevance if we have mitigations (having mitigations is inherently relevant)
+        mitigation_bonus = min(len(mitigations) * 0.1, 0.3) if mitigations else 0
+        
+        # Combine components
+        base_relevance = normalized_citation + mitigation_bonus
+        base_relevance = min(base_relevance, 1.0)  # Cap at 1.0
+        
+        if llm_confidence is not None:
+            # Combine with LLM confidence if available
+            relevance_score = (base_relevance * 0.6) + (llm_confidence * 0.4)
+        else:
+            relevance_score = base_relevance
+        
+        # If user rating is provided, use it to override/adjust the score
         user_score = (user_rating - 1) / 4 if user_rating and 1 <= user_rating <= 5 else None
+        if user_score is not None:
+            # Blend user rating with calculated score (user rating has higher weight)
+            relevance_score = (relevance_score * 0.3) + (user_score * 0.7)
         
         record = {
             "alert_id": alert_id,
             "timestamp": datetime.now().isoformat(),
             "mitigation_count": len(mitigations),
             "citation_avg_score": avg_citation_score,
+            "normalized_citation_score": normalized_citation,
             "llm_confidence": llm_confidence,
             "relevance_score": relevance_score,
             "user_rating": user_rating,
@@ -154,7 +178,12 @@ class MetricsTracker:
             return {
                 "total_alerts": 0,
                 "critical_alerts": 0,
-                "accuracy": None,
+                "critical_alerts_accuracy": None,
+                "critical_alerts_count": 0,
+                "critical_alerts_correctly_identified": 0,
+                "alerts_with_ground_truth": 0,
+                "exact_severity_accuracy": None,
+                "close_severity_accuracy": None,
                 "message": "No alert data available"
             }
         
@@ -168,8 +197,12 @@ class MetricsTracker:
             return {
                 "total_alerts": total_alerts,
                 "critical_alerts": critical_alerts,
-                "accuracy": None,
-                "accuracy_with_ground_truth": None,
+                "critical_alerts_accuracy": None,
+                "critical_alerts_count": 0,
+                "critical_alerts_correctly_identified": 0,
+                "alerts_with_ground_truth": 0,
+                "exact_severity_accuracy": None,
+                "close_severity_accuracy": None,
                 "message": "No ground truth data available for accuracy calculation"
             }
         

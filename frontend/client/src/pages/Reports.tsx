@@ -12,6 +12,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getApiUrl } from "@/lib/api-config";
 import { useState } from "react";
 import generatedImage from '@assets/generated_images/dark_cybersecurity_background_texture.png';
+import jsPDF from 'jspdf';
 
 const typeColors = {
   security: "bg-primary/10 text-primary border-primary/20",
@@ -201,10 +202,317 @@ export default function Reports() {
           ) : reportDetails ? (
             <>
               <DialogHeader>
-                <DialogTitle className="text-2xl font-display">{reportDetails.report.title}</DialogTitle>
-                <DialogDescription>
-                  {reportDetails.report.period} • Generated: {new Date(reportDetails.report.generatedAt).toLocaleString()}
-                </DialogDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <DialogTitle className="text-2xl font-display">{reportDetails.report.title}</DialogTitle>
+                    <DialogDescription>
+                      {reportDetails.report.period} • Generated: {new Date(reportDetails.report.generatedAt).toLocaleString()}
+                    </DialogDescription>
+                  </div>
+                  <Button
+                    onClick={() => {
+                      const generatePDF = () => {
+                        const pdf = new jsPDF('p', 'mm', 'a4');
+                        const pageWidth = 210;
+                        const pageHeight = 297;
+                        const margin = 20;
+                        let yPos = margin;
+                        
+                        // Helper function to check if we need a new page
+                        const checkNewPage = (requiredSpace: number) => {
+                          if (yPos + requiredSpace > pageHeight - margin) {
+                            pdf.addPage();
+                            yPos = margin;
+                            return true;
+                          }
+                          return false;
+                        };
+                        
+                        // Helper function to draw a colored box
+                        const drawColoredBox = (x: number, y: number, width: number, height: number, color: number[]) => {
+                          pdf.setFillColor(color[0], color[1], color[2]);
+                          pdf.rect(x, y, width, height, 'F');
+                        };
+                        
+                        // Helper function to draw section header
+                        const drawSectionHeader = (title: string, y: number) => {
+                          // Draw colored header background
+                          pdf.setFillColor(59, 130, 246); // Blue color
+                          pdf.rect(margin, y, pageWidth - 2 * margin, 8, 'F');
+                          
+                          // Draw title
+                          pdf.setTextColor(255, 255, 255);
+                          pdf.setFontSize(14);
+                          pdf.setFont('helvetica', 'bold');
+                          pdf.text(title, margin + 2, y + 6);
+                          
+                          // Reset text color
+                          pdf.setTextColor(40, 40, 40);
+                          pdf.setFont('helvetica', 'normal');
+                        };
+                        
+                        // Header with colored background
+                        pdf.setFillColor(30, 41, 59); // Dark blue-gray
+                        pdf.rect(0, 0, pageWidth, 35, 'F');
+                        
+                        // Title
+                        pdf.setTextColor(255, 255, 255);
+                        pdf.setFontSize(22);
+                        pdf.setFont('helvetica', 'bold');
+                        pdf.text('Security Report', margin, 20);
+                        
+                        // Subtitle
+                        pdf.setFontSize(12);
+                        pdf.setFont('helvetica', 'normal');
+                        pdf.text(reportDetails.report.title, margin, 28);
+                        
+                        yPos = 45;
+                        
+                        // Metadata box
+                        pdf.setFillColor(249, 250, 251); // Light gray
+                        pdf.rect(margin, yPos, pageWidth - 2 * margin, 25, 'F');
+                        pdf.setDrawColor(229, 231, 235);
+                        pdf.rect(margin, yPos, pageWidth - 2 * margin, 25, 'S');
+                        
+                        pdf.setTextColor(75, 85, 99);
+                        pdf.setFontSize(9);
+                        pdf.text(`Period: ${reportDetails.report.period}`, margin + 3, yPos + 8);
+                        pdf.text(`Generated: ${new Date(reportDetails.report.generatedAt).toLocaleString()}`, margin + 3, yPos + 14);
+                        pdf.text(`Report ID: ${reportDetails.report.id}`, margin + 3, yPos + 20);
+                        
+                        yPos += 32;
+                        
+                        // Executive Summary Section
+                        drawSectionHeader('Executive Summary', yPos);
+                        yPos += 12;
+                        
+                        // Summary metrics in a grid layout
+                        const metrics = [
+                          { label: 'Security Score', value: reportDetails.report.score, color: [59, 130, 246] },
+                          { label: 'Total Findings', value: reportDetails.report.findings, color: [107, 114, 128] },
+                          { label: 'Incidents', value: reportDetails.summary.total_incidents, color: [239, 68, 68] },
+                          { label: 'Threats', value: reportDetails.summary.total_threats, color: [249, 115, 22] },
+                          { label: 'Assets', value: reportDetails.summary.total_assets, color: [34, 197, 94] },
+                          { label: 'Alerts', value: reportDetails.summary.total_alerts, color: [168, 85, 247] }
+                        ];
+                        
+                        const boxWidth = (pageWidth - 2 * margin - 20) / 3;
+                        const boxHeight = 25;
+                        let col = 0;
+                        let row = 0;
+                        
+                        metrics.forEach((metric, index) => {
+                          const x = margin + 5 + col * (boxWidth + 5);
+                          const y = yPos + row * (boxHeight + 5);
+                          
+                          // Draw colored box
+                          pdf.setFillColor(metric.color[0], metric.color[1], metric.color[2]);
+                          pdf.setDrawColor(metric.color[0], metric.color[1], metric.color[2]);
+                          pdf.roundedRect(x, y, boxWidth, boxHeight, 3, 3, 'FD');
+                          
+                          // Draw label
+                          pdf.setTextColor(255, 255, 255);
+                          pdf.setFontSize(8);
+                          pdf.setFont('helvetica', 'normal');
+                          pdf.text(metric.label, x + 3, y + 8);
+                          
+                          // Draw value
+                          pdf.setFontSize(16);
+                          pdf.setFont('helvetica', 'bold');
+                          pdf.text(String(metric.value), x + 3, y + 18);
+                          
+                          // Reset text color
+                          pdf.setTextColor(40, 40, 40);
+                          
+                          col++;
+                          if (col >= 3) {
+                            col = 0;
+                            row++;
+                          }
+                        });
+                        
+                        yPos += (row + 1) * (boxHeight + 5) + 10;
+                        
+                        // Incidents Section
+                        if (reportDetails.related_incidents && reportDetails.related_incidents.length > 0) {
+                          checkNewPage(40);
+                          drawSectionHeader(`Security Incidents (${reportDetails.related_incidents.length})`, yPos);
+                          yPos += 12;
+                          
+                          pdf.setFontSize(10);
+                          pdf.setFont('helvetica', 'bold');
+                          
+                          // Table header
+                          pdf.setFillColor(243, 244, 246);
+                          pdf.rect(margin, yPos, pageWidth - 2 * margin, 8, 'F');
+                          pdf.setTextColor(75, 85, 99);
+                          pdf.setFontSize(9);
+                          pdf.text('ID', margin + 2, yPos + 6);
+                          pdf.text('Title', margin + 30, yPos + 6);
+                          pdf.text('Severity', margin + 120, yPos + 6);
+                          pdf.text('Status', margin + 160, yPos + 6);
+                          yPos += 10;
+                          
+                          pdf.setFontSize(8);
+                          pdf.setFont('helvetica', 'normal');
+                          reportDetails.related_incidents.slice(0, 10).forEach((incident: any, index: number) => {
+                            checkNewPage(12);
+                            
+                            // Alternate row colors
+                            if ((index % 2) === 0) {
+                              pdf.setFillColor(249, 250, 251);
+                              pdf.rect(margin, yPos - 6, pageWidth - 2 * margin, 10, 'F');
+                            }
+                            
+                            pdf.setTextColor(40, 40, 40);
+                            pdf.text(incident.id.substring(0, 12), margin + 2, yPos);
+                            pdf.text(incident.title.substring(0, 35), margin + 30, yPos);
+                            
+                            // Severity color coding
+                            const severityColor = incident.severity?.toLowerCase() === 'critical' ? [239, 68, 68] :
+                                                  incident.severity?.toLowerCase() === 'high' ? [249, 115, 22] :
+                                                  incident.severity?.toLowerCase() === 'medium' ? [234, 179, 8] : [107, 114, 128];
+                            pdf.setFillColor(severityColor[0], severityColor[1], severityColor[2]);
+                            pdf.roundedRect(margin + 120, yPos - 6, 25, 6, 2, 2, 'F');
+                            pdf.setTextColor(255, 255, 255);
+                            pdf.text(incident.severity || 'N/A', margin + 122, yPos - 1);
+                            
+                            pdf.setTextColor(75, 85, 99);
+                            pdf.text(incident.status || 'N/A', margin + 160, yPos);
+                            yPos += 10;
+                          });
+                          yPos += 5;
+                        }
+                        
+                        // Threats Section
+                        if (reportDetails.related_threats && reportDetails.related_threats.length > 0) {
+                          checkNewPage(40);
+                          drawSectionHeader(`Threat Intelligence (${reportDetails.related_threats.length})`, yPos);
+                          yPos += 12;
+                          
+                          // Table header
+                          pdf.setFillColor(243, 244, 246);
+                          pdf.rect(margin, yPos, pageWidth - 2 * margin, 8, 'F');
+                          pdf.setTextColor(75, 85, 99);
+                          pdf.setFontSize(9);
+                          pdf.setFont('helvetica', 'bold');
+                          pdf.text('Threat', margin + 2, yPos + 6);
+                          pdf.text('Type', margin + 100, yPos + 6);
+                          pdf.text('Severity', margin + 140, yPos + 6);
+                          pdf.text('Score', margin + 170, yPos + 6);
+                          yPos += 10;
+                          
+                          pdf.setFontSize(8);
+                          pdf.setFont('helvetica', 'normal');
+                          reportDetails.related_threats.slice(0, 10).forEach((threat: any, index: number) => {
+                            checkNewPage(12);
+                            
+                            // Alternate row colors
+                            if ((index % 2) === 0) {
+                              pdf.setFillColor(249, 250, 251);
+                              pdf.rect(margin, yPos - 6, pageWidth - 2 * margin, 10, 'F');
+                            }
+                            
+                            pdf.setTextColor(40, 40, 40);
+                            pdf.text(threat.title.substring(0, 45), margin + 2, yPos);
+                            pdf.text(threat.type || 'N/A', margin + 100, yPos);
+                            
+                            // Severity color coding
+                            const severityColor = threat.severity?.toLowerCase() === 'critical' ? [239, 68, 68] :
+                                                  threat.severity?.toLowerCase() === 'high' ? [249, 115, 22] :
+                                                  threat.severity?.toLowerCase() === 'medium' ? [234, 179, 8] : [107, 114, 128];
+                            pdf.setFillColor(severityColor[0], severityColor[1], severityColor[2]);
+                            pdf.roundedRect(margin + 140, yPos - 6, 25, 6, 2, 2, 'F');
+                            pdf.setTextColor(255, 255, 255);
+                            pdf.text((threat.severity || 'N/A').substring(0, 8), margin + 142, yPos - 1);
+                            
+                            pdf.setTextColor(59, 130, 246);
+                            pdf.setFont('helvetica', 'bold');
+                            pdf.text(`${(threat.score * 100).toFixed(0)}%`, margin + 170, yPos);
+                            pdf.setFont('helvetica', 'normal');
+                            yPos += 10;
+                          });
+                          yPos += 5;
+                        }
+                        
+                        // Assets Section
+                        if (reportDetails.related_assets && reportDetails.related_assets.length > 0) {
+                          checkNewPage(40);
+                          drawSectionHeader(`Affected Assets (${reportDetails.related_assets.length})`, yPos);
+                          yPos += 12;
+                          
+                          // Table header
+                          pdf.setFillColor(243, 244, 246);
+                          pdf.rect(margin, yPos, pageWidth - 2 * margin, 8, 'F');
+                          pdf.setTextColor(75, 85, 99);
+                          pdf.setFontSize(9);
+                          pdf.setFont('helvetica', 'bold');
+                          pdf.text('Asset Name', margin + 2, yPos + 6);
+                          pdf.text('IP Address', margin + 80, yPos + 6);
+                          pdf.text('Status', margin + 130, yPos + 6);
+                          pdf.text('Vulnerabilities', margin + 170, yPos + 6);
+                          yPos += 10;
+                          
+                          pdf.setFontSize(8);
+                          pdf.setFont('helvetica', 'normal');
+                          reportDetails.related_assets.slice(0, 15).forEach((asset: any, index: number) => {
+                            checkNewPage(12);
+                            
+                            // Alternate row colors
+                            if ((index % 2) === 0) {
+                              pdf.setFillColor(249, 250, 251);
+                              pdf.rect(margin, yPos - 6, pageWidth - 2 * margin, 10, 'F');
+                            }
+                            
+                            pdf.setTextColor(40, 40, 40);
+                            pdf.text((asset.name || 'N/A').substring(0, 35), margin + 2, yPos);
+                            pdf.text((asset.ip || 'N/A').substring(0, 15), margin + 80, yPos);
+                            
+                            // Status color coding
+                            const statusColor = asset.status?.toLowerCase() === 'at risk' ? [239, 68, 68] :
+                                               asset.status?.toLowerCase() === 'monitored' ? [234, 179, 8] : [34, 197, 94];
+                            pdf.setFillColor(statusColor[0], statusColor[1], statusColor[2]);
+                            pdf.roundedRect(margin + 130, yPos - 6, 30, 6, 2, 2, 'F');
+                            pdf.setTextColor(255, 255, 255);
+                            pdf.text((asset.status || 'N/A').substring(0, 10), margin + 132, yPos - 1);
+                            
+                            pdf.setTextColor(75, 85, 99);
+                            pdf.text(String(asset.vulnerabilities || 0), margin + 170, yPos);
+                            yPos += 10;
+                          });
+                          yPos += 5;
+                        }
+                        
+                        // Footer on all pages
+                        const totalPages = pdf.getNumberOfPages();
+                        for (let i = 1; i <= totalPages; i++) {
+                          pdf.setPage(i);
+                          
+                          // Footer line
+                          pdf.setDrawColor(229, 231, 235);
+                          pdf.line(margin, pageHeight - 15, pageWidth - margin, pageHeight - 15);
+                          
+                          // Footer text
+                          pdf.setFontSize(8);
+                          pdf.setTextColor(156, 163, 175);
+                          pdf.text(`Page ${i} of ${totalPages}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+                          pdf.text('Generated by Sentinel-RAG Security Analyzer', pageWidth / 2, pageHeight - 5, { align: 'center' });
+                        }
+                        
+                        // Save PDF
+                        const filename = `${reportDetails.report.title.replace(/[^a-z0-9]/gi, '_')}_${new Date(reportDetails.report.generatedAt).toISOString().split('T')[0]}.pdf`;
+                        pdf.save(filename);
+                      };
+                      
+                      generatePDF();
+                    }}
+                    variant="outline"
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Download PDF
+                  </Button>
+                </div>
               </DialogHeader>
               
               <div className="space-y-6 mt-4">

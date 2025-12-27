@@ -1,218 +1,170 @@
-# Sentinel-RAG 🛡️
+# SENTEC Security Analyzer 🛡️
 
-A RAG-based threat intelligence system that detects anomalies in server logs and provides contextualized, prioritized security alerts with LLM-generated mitigation plans.
-Backend: Python 3.10.11
+A RAG-based (Retrieval-Augmented Generation) threat intelligence system that detects anomalies in server logs and provides contextualized, prioritized security alerts with LLM-generated mitigation plans, citations, and comprehensive performance metrics.
+
+## Overview
+
+SENTEC Security Analyzer combines machine learning-based anomaly detection with vector database-powered RAG pipeline to deliver intelligent security threat analysis. The system:
+
+- **Detects anomalies** in server logs using Isolation Forest algorithm
+- **Retrieves relevant context** from security policy documents via Qdrant vector database
+- **Generates intelligent analysis** using Groq's LLM (Llama models)
+- **Provides actionable mitigations** with citations and CVE/CWE/MITRE references
+- **Tracks performance metrics** including accuracy, relevance, and response time
+- **Generates PDF reports** with detailed security analysis
+
 ## Architecture
 
 ```
 ┌─────────────────┐     ┌─────────────────┐
 │  server_logs    │     │  ground_truth   │
-│  (raw data)     │     │  (labels)       │
+│  (CSV/JSON)     │     │  (labels)       │
 └────────┬────────┘     └────────┬────────┘
          │                       │
          ▼                       ▼
 ┌─────────────────┐     ┌─────────────────┐
 │ Anomaly Detector│────▶│   Validation    │
-└────────┬────────┘     │  "95% accurate" │
-         │              └─────────────────┘
+│ (Isolation      │     │  Metrics Track  │
+│  Forest)        │     └─────────────────┘
+└────────┬────────┘
+         │
          ▼
 ┌─────────────────┐     ┌─────────────────┐
-│  RAG Pipeline   │◀───▶│ Knowledge Base  │
-│  (LangChain)    │     │ (CVE/CWE/MITRE) │
+│  RAG Pipeline   │◀───▶│  Vector DB      │
+│  (Groq LLM)     │     │  (Qdrant)       │
+│                 │     │  + PDF Chunks   │
 └────────┬────────┘     └─────────────────┘
          │
          ▼
 ┌─────────────────┐
 │   Dashboard     │
-│ Alert + Fix +   │
-│   Citation      │
+│ • Alerts        │
+│ • Metrics       │
+│ • Reports       │
+│ • Charts        │
 └─────────────────┘
 ```
 
+## Features
+
+### 🔍 Anomaly Detection
+- Isolation Forest-based anomaly detection
+- Feature engineering with TF-IDF vectorization
+- Real-time log file upload and processing
+- Anomaly scoring and prioritization
+
+### 🤖 RAG Pipeline
+- PDF document ingestion and chunking
+- Vector embeddings using Sentence Transformers
+- Semantic search via Qdrant vector database
+- Context-aware LLM analysis using Groq API (Llama 3.1 models)
+- Automatic citation extraction and source references
+
+### 📊 Performance Metrics
+- **Critical Alerts Accuracy**: Tracks prediction accuracy against ground truth
+- **Mitigation Relevance**: Measures quality of LLM-generated mitigations (with user ratings)
+- **Response Time Reduction**: Monitors analysis speed vs baseline (30-minute manual analysis)
+
+### 📄 Reports & Export
+- Comprehensive security reports with incidents, threats, and assets
+- PDF report generation with beautiful formatting
+- Downloadable reports with detailed analysis
+
+### 🎨 Modern Dashboard
+- Real-time alert monitoring
+- Interactive anomaly charts
+- Performance metrics visualization
+- RAG pipeline visualization
+- Responsive design with dark theme
 
 ## Project Structure
 
 ```
-sentec-hackathone/
+SENTEC-Security-Analyzer/
 ├── backend/
-│   ├── app.py              # Flask server
-│   ├── requirements.txt    # Python dependencies
-│   └── .gitignore
+│   ├── app.py                    # Flask API server
+│   ├── hugging_face.py           # Groq LLM integration
+│   ├── rag_orchestration.py      # RAG pipeline logic
+│   ├── setup_vector_db.py        # Qdrant initialization
+│   ├── pdf_injestion.py          # PDF processing and chunking
+│   ├── log_feature_pipeline.py   # Feature engineering
+│   ├── isolation_forest_model.py # Anomaly detection model
+│   ├── metrics_tracker.py        # Performance metrics tracking
+│   ├── requirements.txt          # Python dependencies
+│   └── qdrant_db/                # Local Qdrant database
 │
 ├── frontend/
-│   ├── public/             # Static assets
-│   ├── src/
-│   │   ├── App.jsx         # Main React component
-│   │   ├── main.jsx        # React entry point
-│   │   └── index.css       # Global styles
-│   ├── index.html
-│   ├── package.json
-│   ├── vite.config.js
-│   └── .gitignore
+│   └── client/
+│       ├── src/
+│       │   ├── pages/
+│       │   │   ├── Dashboard.tsx      # Main dashboard
+│       │   │   ├── Reports.tsx        # Reports page
+│       │   │   ├── Incidents.tsx      # Incidents view
+│       │   │   ├── Intelligence.tsx   # Threat intelligence
+│       │   │   └── Assets.tsx         # Assets view
+│       │   ├── components/
+│       │   │   ├── dashboard/
+│       │   │   │   ├── AlertCard.tsx           # Alert display
+│       │   │   │   ├── AnomalyChart.tsx        # Chart visualization
+│       │   │   │   ├── PerformanceMetrics.tsx  # Metrics dashboard
+│       │   │   │   └── RagPipelineVisual.tsx   # RAG visualization
+│       │   │   └── layout/
+│       │   │       └── Sidebar.tsx             # Navigation sidebar
+│       │   └── lib/
+│       │       └── api-config.ts      # API configuration
+│       ├── package.json
+│       └── vite.config.ts
 │
-└── dataset/
-    ├── server_logs.json    # Raw unlabeled logs (775 events)
-    ├── server_logs.csv     # Same in CSV format
-    ├── ground_truth.json   # Event ID → Attack type mapping
-    ├── knowledge_base.json # CVE/CWE/MITRE for RAG retrieval
-    └── dataset_stats.json  # Dataset statistics
+├── dataset/
+│   ├── server_logs.json          # Raw unlabeled logs (775 events)
+│   ├── server_logs.csv           # Same in CSV format
+│   ├── ground_truth.json         # Event ID → Attack type mapping
+│   ├── knowledge_base.json       # CVE/CWE/MITRE reference data
+│   └── dataset_stats.json        # Dataset statistics
+│
+├── Security_Policy_Ingestion.pdf # Security policy document for RAG
+└── README.md
 ```
 
----
+## Tech Stack
 
-## Phase 02: Datasets
+### Backend
+- **Python 3.10+**
+- **Flask 3.0** - Web framework
+- **Flask-CORS** - Cross-origin resource sharing
+- **scikit-learn** - Isolation Forest anomaly detection
+- **pandas/numpy** - Data processing
+- **Qdrant Client** - Vector database
+- **Sentence Transformers** - Text embeddings
+- **Groq API** - LLM inference (Llama 3.1 models)
+- **pypdf** - PDF processing
 
-### Dataflow Overview
-
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                           DATASET LAYER                                  │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                         │
-│   server_logs.json ──────┐                                              │
-│   (775 raw events)       │                                              │
-│                          ▼                                              │
-│                  ┌───────────────┐      ┌─────────────────┐             │
-│                  │   ANOMALY     │      │  ground_truth   │             │
-│                  │   DETECTOR    │─────▶│    (labels)     │             │
-│                  └───────┬───────┘      │  for validation │             │
-│                          │              └─────────────────┘             │
-│                          ▼                                              │
-│                  ┌───────────────┐      ┌─────────────────┐             │
-│                  │     RAG       │◀────▶│ knowledge_base  │             │
-│                  │   PIPELINE    │      │ (CVE/CWE/MITRE) │             │
-│                  └───────┬───────┘      └─────────────────┘             │
-│                          │                                              │
-│                          ▼                                              │
-│                  ┌───────────────┐                                      │
-│                  │   DASHBOARD   │                                      │
-│                  │ Top 3 Alerts  │                                      │
-│                  │ + Mitigations │                                      │
-│                  │ + Citations   │                                      │
-│                  └───────────────┘                                      │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
-```
-
-### Dataset Statistics
-
-The dataset contains **775 synthetic server log events** designed for anomaly detection and RAG-based threat intelligence:
-
-| Category | Count | Percentage |
-|----------|-------|------------|
-| Normal Events | 500 | 64.5% |
-| Malicious Events | 275 | 35.5% |
-
-### Attack Types Included
-
-| Attack Type | Count | Description |
-|-------------|-------|-------------|
-| DOS | 100 | Rapid request flood from single IP |
-| PORT_SCAN | 50 | Multiple connection attempts to various ports |
-| BRUTE_FORCE | 30 | Repeated failed login attempts |
-| SQL_INJECTION | 25 | Malicious SQL in query parameters |
-| XSS | 20 | Cross-site scripting payloads |
-| UNAUTHORIZED_ACCESS | 20 | Requests to sensitive endpoints |
-| PATH_TRAVERSAL | 15 | Directory traversal attempts |
-| COMMAND_INJECTION | 15 | OS command injection payloads |
-
-### Dataset Files
-
-#### 1. `server_logs.json` / `server_logs.csv`
-Raw, **unlabeled** server logs - input for the anomaly detector.
-
-**Sample Normal Log:**
-```json
-{
-  "event_id": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
-  "timestamp": "2024-12-01T02:15:32.456789Z",
-  "event_type": "HTTP_REQUEST",
-  "source_ip": "192.168.1.101",
-  "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0",
-  "endpoint": "/api/dashboard",
-  "http_method": "GET",
-  "query_params": null,
-  "response_code": 200,
-  "response_time_ms": 145
-}
-```
-
-**Sample Attack Log (SQL Injection - hidden in normal format):**
-```json
-{
-  "event_id": "e5f6g7h8-90ab-cdef-1234-567890abcdef",
-  "timestamp": "2024-12-01T08:42:15.123456Z",
-  "event_type": "HTTP_REQUEST",
-  "source_ip": "185.220.101.45",
-  "user_agent": "sqlmap/1.7.2#stable",
-  "endpoint": "/api/users",
-  "http_method": "GET",
-  "query_params": "id=' UNION SELECT username,password FROM users --",
-  "response_code": 500,
-  "response_time_ms": 1250
-}
-```
-
-#### 2. `ground_truth.json`
-Maps event IDs to attack types - used for **validation** and **accuracy testing** of the anomaly detector.
-
-```json
-{
-  "e5f6g7h8-90ab-cdef-1234-567890abcdef": "SQL_INJECTION",
-  "k9l0m1n2-3456-7890-abcd-ef1234567890": "BRUTE_FORCE"
-}
-```
-
-#### 3. `knowledge_base.json`
-Vulnerability knowledge base for **RAG retrieval** - enriches detected threats with CVE/CWE/MITRE context for LLM-generated mitigations.
-With knowledge base: LLM gives specific, citable mitigations with real CVE/CWE/MITRE references
-This is the "R" in RAG - Retrieval Augmented Generation. The knowledge base is what gets retrieved to augment the LLM's response
-
-```json
-{
-  "cve_database": {
-    "SQL_INJECTION": [
-      {"cve_id": "CVE-2023-34362", "description": "MOVEit Transfer SQL Injection", "cvss_score": 9.8},
-      {"cve_id": "CVE-2021-44228", "description": "Log4Shell", "cvss_score": 10.0}
-    ]
-  },
-  "cwe_database": {
-    "SQL_INJECTION": {"cwe_id": "CWE-89", "name": "SQL Injection"}
-  },
-  "mitre_attack": {
-    "SQL_INJECTION": {"technique_id": "T1190", "technique_name": "Exploit Public-Facing Application"}
-  }
-}
-```
-
-### How the Dataset Was Created
-
-1. **Normal baseline events (500)**: Realistic login, logout, and API requests from internal IPs with standard user agents
-
-2. **Attack events (275)**: Injected with realistic attack patterns:
-   - SQL/XSS/Command injection payloads in query parameters
-   - Brute force: 30 rapid failed logins from same IP
-   - Port scan: 50 connection attempts from same IP
-   - DoS: 100 rapid requests within seconds from same IP
-   - Path traversal: `../../../etc/passwd` style paths
-   - Unauthorized access: Requests to `/admin`, `/.env`, etc.
-
-3. **Realistic characteristics**:
-   - External IPs for most attacks (185.x.x.x, 45.x.x.x ranges)
-   - Suspicious user agents (sqlmap, Nikto, curl) for some attacks
-   - Varied response codes (200, 401, 403, 500) - attacks may succeed or fail
-   - Timestamps spread across the dataset with burst patterns
-
----
+### Frontend
+- **React 19** - UI framework
+- **TypeScript** - Type safety
+- **Vite** - Build tool and dev server
+- **TailwindCSS** - Utility-first CSS
+- **Radix UI** - Component primitives
+- **Framer Motion** - Animations
+- **Recharts** - Chart visualization
+- **TanStack Query** - Data fetching and caching
+- **jsPDF** - PDF generation
+- **Wouter** - Routing
 
 ## Prerequisites
 
-- **Python 3.8+** - [Download](https://www.python.org/downloads/)
+- **Python 3.10+** - [Download](https://www.python.org/downloads/)
 - **Node.js 18+** - [Download](https://nodejs.org/)
+- **Groq API Key** - Get one at [console.groq.com](https://console.groq.com) (free tier available)
 
 ## Getting Started
 
 ### 1. Clone the Repository
+
+```bash
+git clone <repository-url>
+cd SENTEC-Security-Analyzer
+```
 
 ### 2. Setup Backend
 
@@ -234,6 +186,12 @@ source venv/bin/activate
 # Install dependencies
 pip install -r requirements.txt
 
+# Set Groq API Key (optional, can also set in hugging_face.py)
+# Windows (PowerShell):
+$env:GROQ_API_KEY="your-api-key-here"
+# macOS/Linux:
+export GROQ_API_KEY="your-api-key-here"
+
 # Run the Flask server
 python app.py
 ```
@@ -241,6 +199,11 @@ python app.py
 > ⚠️ **Note:** Always activate the virtual environment before running the backend.
 
 The backend will start at: **http://127.0.0.1:5000**
+
+The backend automatically:
+- Initializes Qdrant vector database
+- Loads and trains the anomaly detection model
+- Ingests the security policy PDF (if available)
 
 ### 3. Setup Frontend
 
@@ -257,85 +220,231 @@ npm install
 npm run dev:client
 ```
 
-### Backend
+The frontend will start at: **http://localhost:5000** (or another port if 5000 is taken)
 
-| Command           | Description                    |
-|-------------------|--------------------------------|
-| `python app.py`   | Start Flask server (debug mode)|
+## Usage
 
-## Tech Stack
+### 1. Upload Log Files
 
-- **Frontend:** React 18, Vite 6
-- **Backend:** Flask 3.0, Flask-CORS
-- **Styling:** CSS (Dark theme)
+1. Navigate to the Dashboard
+2. Click "Upload Logs" button
+3. Select a CSV or JSON file with server logs
+4. The system will automatically:
+   - Detect anomalies
+   - Generate alerts
+   - Display results on the dashboard
+
+### 2. Analyze Alerts
+
+1. View detected alerts on the Dashboard
+2. Click "Analyze with RAG" on any alert
+3. The system will:
+   - Retrieve relevant context from vector database
+   - Generate security analysis using LLM
+   - Display mitigations with citations
+4. Click "View LLM Response" to see detailed analysis
+
+### 3. View Performance Metrics
+
+- Metrics are automatically tracked and displayed on the Dashboard
+- Metrics include:
+  - Critical Alerts Accuracy (vs ground truth)
+  - Mitigation Relevance (with user ratings)
+  - Response Time Reduction (vs 30-minute baseline)
+
+### 4. Generate Reports
+
+1. Navigate to the Reports page
+2. View available security reports
+3. Click on any report to see details
+4. Click "Download Report" to generate a PDF
+
+### 5. Rate Mitigations
+
+- After viewing LLM analysis, you can rate the mitigation quality (1-5 stars)
+- Ratings are used to calculate mitigation relevance metrics
+
+## API Endpoints
+
+### Alerts & Analysis
+- `POST /api/upload-logs` - Upload and analyze log files (CSV/JSON)
+- `GET /api/alerts` - Get all detected alerts
+- `POST /api/analyze-alert` - Analyze a specific alert with RAG pipeline
+- `GET /api/anomaly-chart-data` - Get chart data for anomaly visualization
+- `POST /api/rag-search` - Perform semantic search in vector database
+
+### Data Retrieval
+- `GET /api/incidents` - Get security incidents
+- `GET /api/threat-intel` - Get threat intelligence data
+- `GET /api/assets` - Get affected assets
+- `GET /api/reports` - Get all security reports
+- `GET /api/reports/<report_id>` - Get detailed report information
+- `GET /api/last-upload-summary` - Get summary of last log upload
+
+### Vector Database & PDF
+- `POST /api/pdf-ingest` - Ingest and process PDF documents
+- `POST /api/setup-vector-db` - Initialize or reset vector database
+
+### Metrics & Performance
+- `GET /api/metrics` - Get all performance metrics (accuracy, relevance, response time)
+- `POST /api/metrics/mitigation-feedback` - Submit user feedback/rating (1-5 stars)
+- `POST /api/metrics/clear` - Clear all metrics data
+
+### System & Utilities
+- `GET /api/health` - Health check endpoint (checks vector DB and model status)
+- `POST /api/clear-all-data` - Clear all uploaded data and analysis results
+- `GET /` - API information and available endpoints
+
+## Dataset
+
+The system includes a synthetic dataset with **775 server log events**:
+
+| Category | Count | Percentage |
+|----------|-------|------------|
+| Normal Events | 500 | 64.5% |
+| Malicious Events | 275 | 35.5% |
+
+### Attack Types
+
+| Attack Type | Count | Description |
+|-------------|-------|-------------|
+| DOS | 100 | Rapid request flood from single IP |
+| PORT_SCAN | 50 | Multiple connection attempts to various ports |
+| BRUTE_FORCE | 30 | Repeated failed login attempts |
+| SQL_INJECTION | 25 | Malicious SQL in query parameters |
+| XSS | 20 | Cross-site scripting payloads |
+| UNAUTHORIZED_ACCESS | 20 | Requests to sensitive endpoints |
+| PATH_TRAVERSAL | 15 | Directory traversal attempts |
+| COMMAND_INJECTION | 15 | OS command injection payloads |
+
+### Dataset Files
+
+- **server_logs.json/csv**: Raw unlabeled logs for anomaly detection
+- **ground_truth.json**: Event ID → Attack type mapping for validation
+- **knowledge_base.json**: CVE/CWE/MITRE reference data for RAG
+
+## RAG Pipeline
+
+The RAG (Retrieval-Augmented Generation) pipeline:
+
+1. **Ingestion**: PDF documents are chunked and embedded
+2. **Storage**: Embeddings stored in Qdrant vector database
+3. **Retrieval**: Relevant chunks retrieved based on alert context
+4. **Generation**: LLM (via Groq) generates analysis using retrieved context
+5. **Citation**: Source chunks are cited in the response
+
+### PDF Ingestion
+
+The system automatically ingests `Security_Policy_Ingestion.pdf` on startup. This document contains security policies and best practices that inform the LLM's analysis and mitigation recommendations.
+
+## Performance Metrics
+
+### Critical Alerts Accuracy
+- Compares predicted severity (from LLM) vs actual severity (from ground truth)
+- Calculates exact match accuracy and critical alerts accuracy
+- Only metrics with ground truth data are shown
+
+### Mitigation Relevance
+- Based on citation scores (vector similarity)
+- User ratings (1-5 stars) from feedback
+- Converted to letter grades (A+ to F)
+
+### Response Time Reduction
+- Tracks analysis time for each alert
+- Compares against 30-minute baseline (typical manual analysis)
+- Calculates speedup factor and time reduction percentage
+
+## Configuration
+
+### Groq API Key
+
+Set your Groq API key in `backend/hugging_face.py` or as an environment variable:
+
+```python
+GROQ_API_KEY = "your-api-key-here"
+```
+
+### Model Selection
+
+Default model: `llama-3.1-70b-versatile`
+
+You can change the model in `backend/hugging_face.py`:
+
+```python
+MODEL_NAME = os.getenv("MODEL_NAME", "llama-3.1-70b-versatile")
+```
+
+Available models:
+- `llama-3.1-70b-versatile` - Best for complex tasks
+- `llama-3.1-8b-instant` - Fastest
+- `mixtral-8x7b-32768` - Good balance
+- `gemma2-9b-it` - Efficient
+
+### Vector Database
+
+Qdrant runs locally by default. The database is stored in `backend/qdrant_db/`.
 
 ## Troubleshooting
 
 ### CORS Errors
-Make sure the Flask backend is running and CORS is properly configured for `localhost:5000`.
-
+- Ensure the Flask backend is running on port 5000
+- Check CORS configuration in `backend/app.py`
 
 ### Port Already in Use
 - Backend default: `5000` - Change in `app.py`
-- Frontend default: `5000` - Change in `vite.config.js`
+- Frontend default: `5000` - Change in `vite.config.ts` or use different port
+
+### Vector Database Not Initialized
+- Ensure `Security_Policy_Ingestion.pdf` is in the project root
+- Check Qdrant initialization logs on backend startup
+- Vector DB will be created automatically if PDF is found
+
+### Groq API Errors
+- Verify API key is set correctly
+- Check API rate limits (free tier has limits)
+- Ensure internet connection for API calls
+
+### Missing Dependencies
+- Backend: `pip install -r requirements.txt`
+- Frontend: `npm install`
+
+## Development
+
+### Backend Development
+
+```bash
+cd backend
+source venv/bin/activate  # or .\venv\Scripts\Activate.ps1 on Windows
+python app.py  # Runs in debug mode
+```
+
+### Frontend Development
+
+```bash
+cd frontend
+npm run dev:client  # Starts Vite dev server with hot reload
+```
+
+## Project Status
+
+✅ **Implemented Features:**
+- Anomaly detection with Isolation Forest
+- RAG pipeline with Qdrant vector database
+- LLM analysis via Groq API
+- Performance metrics tracking
+- PDF report generation
+- Modern React dashboard
+- Real-time alert monitoring
+- User feedback system
+
+## License
+
+MIT License
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ---
 
-## Security_Policy_Ingestion PDF
-
-To ensure responsible and secure use of the LLM within the Sentinel-RAG pipeline, a formal security policy document is generated as `Security_Policy_Ingestion.pdf` (see `pdf_genrate.py`).
-
-**Why was this created?**
-
-Modern LLM-based systems require clear boundaries on what data can be ingested, especially in security-sensitive applications. The security policy PDF:
-
-- Defines exactly what material (datasets, knowledge base, telemetry) is authorized for ingestion by the LLM.
-- Explicitly lists prohibited data (e.g., ground truth labels, secrets, PII) to prevent data leakage or misuse.
-- Documents the scope, definitions, and change control for compliance and auditability.
-- Serves as a reference for developers, auditors, and security teams to ensure the LLM only accesses approved information.
-
-**Purpose:**
-
-The purpose of `Security_Policy_Ingestion.pdf` is to provide a transparent, auditable, and enforceable policy for data ingestion, supporting both regulatory compliance and operational security in the RAG pipeline.
-
-
----
-
-
-## Phase 04: PDF Ingestion and text chunking
-
-### What was added?
-
-- Added a new feature in the backend (`pdf_injestion.py`) that lets the system read PDF files and break them into smaller pieces of text.
-- You can use the `/api/pdf-ingest` API to send the path of a PDF file, and the backend will read the file, clean up the text, and split it into chunks (small sections) with a little bit of overlap for better understanding.
-- The size of each chunk and how much they overlap can be changed if needed.
-- The API gives you a quick look at the first few chunks and tells you how many chunks were made, so you can check if it worked well.
-
-### Why was this added?
-
-- To make it easy to bring in (ingest) important documents like security policies or any other PDF files into the system for checking, searching, or using with AI models.
-- Breaking the PDF into smaller parts helps the system process, search, and understand the document better, especially if the file is large.
-- Overlapping the chunks a little means you don’t lose important context between sections, so answers and summaries are more accurate.
-- This also helps with following rules and keeping things clear, because you can easily check and process policy documents.
-
----
-
-## Phase 04: Vector DB Setup (QDrant)
-
-### What was added?
-
-- Integrated QDrant as the vector database for storing and searching document embeddings.
-- Added a backend script (`setup_vector_db.py`) to initialize the QDrant collection and upload text chunks (from ingested PDFs or the knowledge base) as vector embeddings.
-- The script uses an embedding model (e.g., Sentence Transformers) to convert text chunks into high-dimensional vectors before storing them in QDrant.
-- Each vector in QDrant is linked to its source text and metadata (e.g., document name, chunk index).
-- The backend can now perform semantic search: given a query, it retrieves the most relevant text chunks from QDrant using vector similarity.
-
-### Why was this added?
-
-- To enable fast, scalable, and accurate retrieval of relevant information for RAG (Retrieval-Augmented Generation) workflows.
-- Storing embeddings in QDrant allows the system to efficiently search large document collections using semantic similarity, not just keyword matching.
-- This is essential for LLM-based threat intelligence, where the model needs to find the most relevant context (e.g., CVEs, policies, mitigations) for a given alert or question.
-- The vector DB setup is modular: you can add new documents, re-embed, or update the collection as needed.
-- QDrant is open-source, easy to run locally or in the cloud, and supports advanced filtering and metadata search.
-
----
+**Built with ❤️ using React, Flask, Qdrant, and Groq LLM**
