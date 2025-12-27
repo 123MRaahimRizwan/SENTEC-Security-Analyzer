@@ -10,6 +10,8 @@ import pandas as pd
 import numpy as np
 from sklearn.ensemble import IsolationForest
 from datetime import datetime
+import time
+from metrics_tracker import metrics_tracker
 
 app = Flask(__name__)
 # Allow all origins for development (restrict in production)
@@ -33,6 +35,9 @@ uploaded_reports = []
 uploaded_alerts = []  # Store alerts from uploaded files only
 uploaded_chart_data = []  # Store chart data from uploaded files only
 last_upload_summary = None  # Store summary of last upload for persistence
+
+# Ground truth data for accuracy tracking
+ground_truth_data = {}  # event_id -> attack_type mapping
 
 # Attack type mapping
 ATTACK_TYPE_MAPPING = {
@@ -125,6 +130,9 @@ def initialize_backend():
                 content = json.load(file)
                 keys = list(content.keys())
                 values = list(content.values())
+                # Store ground truth globally for metrics tracking
+                global ground_truth_data
+                ground_truth_data = content
             
             # Create labels dataframe and merge
             y_labels = pd.DataFrame({'event_id': keys, 'defect': values})
@@ -224,6 +232,9 @@ def setup_vector_db_api():
 @app.route("/api/analyze-alert", methods=["POST"])
 def analyze_alert():
     """Analyze an alert using RAG pipeline and LLM"""
+    # Track start time for response time metrics
+    start_time = time.time()
+    
     try:
         data = request.json
         
@@ -236,9 +247,12 @@ def analyze_alert():
         elif defect is None:
             defect = 0
         
+        alert_id = data.get("event_id", data.get("id", f"alert_{int(time.time())}"))
+        event_id = data.get("event_id", "unknown")
+        
         alert_payload = {
             "defect": int(defect),
-            "event_id": data.get("event_id", "unknown"),
+            "event_id": event_id,
             "source_ip": data.get("source_ip", "unknown"),
             "endpoint": data.get("endpoint", "/"),
             "query_params": data.get("query_params", ""),
@@ -255,6 +269,9 @@ def analyze_alert():
         # Generate security analysis using LLM
         # format_chunks_for_llm returns a string, but generate_security_analysis expects List[str]
         result = generate_security_analysis(alert=alert_payload, retrieved_context=[llm_context])
+        
+        # Track end time
+        end_time = time.time()
         
         # Check if result has error
         if "error" in result:
@@ -289,9 +306,53 @@ def analyze_alert():
                 "text_preview": chunk.get("text", "")[:200]
             })
         
+        # Extract predicted severity
+        predicted_severity = result.get("severity", "Medium")
+        alert_type = result.get("alert_type", ATTACK_TYPE_MAPPING.get(alert_payload["defect"], "Unknown"))
+        
+        # Get actual severity from ground truth if available
+        actual_severity = None
+        if event_id in ground_truth_data:
+            # Map attack type to expected severity (simplified mapping)
+            attack_type_gt = ground_truth_data[event_id]
+            severity_mapping = {
+                "SQL_INJECTION": "Critical",
+                "COMMAND_INJECTION": "Critical",
+                "XSS": "High",
+                "BRUTE_FORCE": "High",
+                "DOS": "High",
+                "UNAUTHORIZED_ACCESS": "Medium",
+                "PORT_SCAN": "Medium",
+                "PATH_TRAVERSAL": "Medium"
+            }
+            actual_severity = severity_mapping.get(attack_type_gt, "Medium")
+        
+        # Track metrics
+        metrics_tracker.track_alert_analysis(
+            alert_id=alert_id,
+            predicted_severity=predicted_severity,
+            actual_severity=actual_severity,
+            alert_type=alert_type,
+            event_id=event_id
+        )
+        
+        metrics_tracker.track_mitigation_relevance(
+            alert_id=alert_id,
+            mitigations=mitigations,
+            citations=citations,
+            llm_confidence=None  # Could be added to LLM response
+        )
+        
+        metrics_tracker.track_analysis_time(
+            alert_id=alert_id,
+            start_time=start_time,
+            end_time=end_time,
+            analysis_type="rag_llm"
+        )
+        
         return jsonify({
-            "alert_type": result.get("alert_type", ATTACK_TYPE_MAPPING.get(alert_payload["defect"], "Unknown")),
-            "severity": result.get("severity", "Medium"),
+            "alert_type": alert_type,
+            "severity": predicted_severity,
             "classification": result.get("classification", "True Positive"),
             "analysis": result.get("analysis", "No analysis available"),
             "mitre_technique": result.get("mitre_technique", ""),
@@ -995,6 +1056,50 @@ def health_check():
     })
     return response
 
+@app.route("/api/metrics", methods=["GET"])
+def get_metrics():
+    """Get all performance metrics"""
+    try:
+        metrics = metrics_tracker.get_all_metrics()
+        return jsonify(metrics)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/metrics/mitigation-feedback", methods=["POST"])
+def submit_mitigation_feedback():
+    """Submit user feedback on mitigation relevance"""
+    try:
+        data = request.json
+        alert_id = data.get("alert_id")
+        rating = data.get("rating")  # 1-5 stars
+        
+        if not alert_id or not rating:
+            return jsonify({"error": "alert_id and rating (1-5) are required"}), 400
+        
+        if not (1 <= rating <= 5):
+            return jsonify({"error": "rating must be between 1 and 5"}), 400
+        
+        # Track user feedback
+        metrics_tracker.track_mitigation_relevance(
+            alert_id=alert_id,
+            mitigations=[],  # Not needed for feedback update
+            citations=[],
+            user_rating=rating
+        )
+        
+        return jsonify({"status": "success", "message": "Feedback recorded"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/metrics/clear", methods=["POST"])
+def clear_metrics():
+    """Clear all metrics data"""
+    try:
+        metrics_tracker.clear_metrics()
+        return jsonify({"status": "success", "message": "Metrics cleared"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.route("/", methods=["GET"])
 def root():
     """Root endpoint to verify server is running"""
@@ -1005,7 +1110,8 @@ def root():
             "health": "/api/health",
             "alerts": "/api/alerts",
             "upload": "/api/upload-logs",
-            "analyze": "/api/analyze-alert"
+            "analyze": "/api/analyze-alert",
+            "metrics": "/api/metrics"
         }
     })
 
