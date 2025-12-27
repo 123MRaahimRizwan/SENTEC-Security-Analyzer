@@ -1,9 +1,7 @@
 from flask import Flask, jsonify, request
 from pdf_injestion import run_pdf_ingestion_pipeline
-from setup_vector_db import setup_qdrant
 from flask_cors import CORS
 from hugging_face import generate_security_analysis
-from rag_orchestration import format_chunks_for_llm, rag_retrieve
 
 app = Flask(__name__)
 CORS(app, origins=["http://localhost:5173", "http://127.0.0.1:5173"])
@@ -59,6 +57,8 @@ def setup_vector_db_api():
     data = request.get_json()
     pdf_path = data.get("pdf_path") if data else None
     try:
+        # Import here to avoid pulling heavy transformer deps during app startup
+        from setup_vector_db import setup_qdrant
         setup_qdrant(pdf_path=pdf_path)
         return jsonify({"status": "success", "message": "Vector DB setup complete."})
     except Exception as e:
@@ -76,6 +76,9 @@ def analyze_alert():
         "query_params": data["query_params"],
         "anomaly_score": data["anomaly_score"]
     }
+    # Import RAG orchestration lazily to avoid heavy imports at startup
+    from rag_orchestration import format_chunks_for_llm, rag_retrieve
+
     rag_retrieval = rag_retrieve(alert_payload, top_k=3)
     llm_context = format_chunks_for_llm(rag_retrieval['retrieved_chunks'])
 
