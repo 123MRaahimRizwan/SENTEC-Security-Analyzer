@@ -362,13 +362,7 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <div className="relative">
-              <Bell className="h-5 w-5 text-muted-foreground hover:text-foreground cursor-pointer transition-colors" />
-              <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-destructive animate-pulse"></span>
-            </div>
-            <div className="h-8 w-8 rounded-full bg-secondary border border-border flex items-center justify-center">
-              <User className="h-4 w-4 text-muted-foreground" />
-            </div>
+            {/* Removed notification (Bell) and profile (User) icons */}
           </div>
         </header>
         {/* Scrollable Content */}
@@ -471,7 +465,7 @@ export default function Dashboard() {
                         </div>
                         <div>
                           <p className="text-xs text-muted-foreground">Analyzed Events</p>
-                          <p className="text-2xl font-mono font-bold text-primary">1.2M</p>
+                          <p className="text-2xl font-mono font-bold text-primary">{(uploadedFileData?.total_events ?? uploadStatus.data?.total_events ?? 0).toLocaleString()}</p>
                         </div>
                       </div>
                     </div>

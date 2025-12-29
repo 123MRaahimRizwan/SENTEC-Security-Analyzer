@@ -114,7 +114,7 @@ export function AlertCard({ alert, index }: AlertCardProps) {
             </div>
             <div className="flex justify-between items-center font-mono text-xs">
               <span>{alert.anomalies[0].metric}: <span className="text-foreground">{alert.anomalies[0].value.toLocaleString()}</span></span>
-              <span className="text-destructive">+{alert.anomalies[0].deviation}% Deviation</span>
+              <span className="text-destructive">+{alert.anomalies[0].deviation.toFixed(2)}% Deviation</span>
             </div>
           </div>
 
