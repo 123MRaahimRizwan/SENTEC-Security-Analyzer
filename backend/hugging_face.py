@@ -3,22 +3,14 @@ import json
 from groq import Groq
 from typing import Dict, List, Any
 
-# --- CONFIGURATION ---
 GROQ_API_KEY = "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"
 
 if not GROQ_API_KEY:
     raise ValueError("Error: GROQ_API_KEY environment variable is not set. Get one at: https://console.groq.com")
 
-# Initialize Groq client
 client = Groq(api_key=GROQ_API_KEY)
 
-# Available FREE models on Groq:
-# - "llama-3.1-70b-versatile" (best for complex tasks)
-# - "llama-3.1-8b-instant" (fastest)
-# - "mixtral-8x7b-32768" (good balance)
-# - "gemma2-9b-it" (efficient)
 MODEL_NAME = os.getenv("MODEL_NAME", "llama-3.1-70b-versatile")
-# A comma-separated list of fallback models to try if the primary model fails
 FALLBACK_MODELS = [m.strip() for m in os.getenv("FALLBACK_MODELS", "llama-3.1-8b-instant,mixtral-8x7b-32768,gemma2-9b-it").split(",") if m.strip()]
 
 SECURITY_ANALYSIS_PROMPT_TEMPLATE = """
@@ -105,14 +97,12 @@ def generate_security_analysis(alert: Dict, retrieved_context: List[str]) -> Dic
                 "model": model
             }
         except Exception as e:
-            # Capture the exception and examine message for common cases (decommissioned, 404, etc.)
             msg = str(e)
             last_exception = e
             print(f"Model {model} failed: {msg}")
 
             if "decommissioned" in msg.lower() or "model_decommissioned" in msg.lower() or "not supported" in msg.lower():
                 print(f"Model {model} appears decommissioned. Trying next fallback model if available.")
-                # Continue to next fallback model
                 continue
             if "404" in msg or "not found" in msg.lower():
                 print("Model not found (404). Listing available models to help choose a replacement:")
@@ -125,11 +115,9 @@ def generate_security_analysis(alert: Dict, retrieved_context: List[str]) -> Dic
                     "details": msg,
                     "model": model
                 }
-            # For other errors, try next fallback; if none left, return error details
             last_raw = None
             continue
 
-    # If we reach here, no model succeeded
     details = str(last_exception) if last_exception else "No models attempted"
     return {
         "error": "Groq API Error",
@@ -150,11 +138,7 @@ def list_available_models():
     except Exception as e:
         print(f"Error listing models: {e}")
 
-# --- MAIN EXECUTION ---
 if __name__ == "__main__":
-    # Uncomment to see available models:
-    # list_available_models()
-    # exit()
     
     sample_alert = {
         "event_id": "EVT-2024-001",
