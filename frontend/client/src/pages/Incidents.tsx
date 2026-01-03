@@ -1,11 +1,12 @@
 
+import { useState } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 // import { MOCK_INCIDENTS } from "@/lib/mock-data";
-import { Search, Clock, Users, AlertTriangle, CheckCircle, Filter } from "lucide-react";
+import { Search, Clock, Users, AlertTriangle, CheckCircle, Filter, Menu } from "lucide-react";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { getApiUrl } from "@/lib/api-config";
@@ -19,6 +20,7 @@ const statusColors = {
 };
 
 export default function Incidents() {
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const { data: incidentsData, isLoading } = useQuery({
     queryKey: ["incidents"],
     queryFn: async () => {
@@ -41,7 +43,15 @@ export default function Incidents() {
   
   return (
     <div className="flex min-h-screen bg-background text-foreground font-sans">
-      <Sidebar />
+      <button
+        className="fixed top-4 left-4 z-40 p-2 rounded-full bg-background/60 border border-border shadow-sm transition-colors hover:bg-primary/10 hover:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+        onClick={() => setSidebarOpen((open) => !open)}
+        aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
+        style={{ transition: 'left 0.2s', left: sidebarOpen ? '272px' : '16px' }}
+      >
+        <Menu className="h-5 w-5 text-muted-foreground" />
+      </button>
+      {sidebarOpen && <Sidebar />}
       
       <main className="flex-1 flex flex-col h-screen overflow-hidden relative">
         <div className="absolute inset-0 z-0 opacity-20 pointer-events-none">
@@ -51,7 +61,7 @@ export default function Incidents() {
         </div>
 
         <header className="h-16 border-b border-border/50 bg-background/50 backdrop-blur-md px-8 flex items-center justify-between z-10 shrink-0">
-          <div className="flex items-center gap-4 w-1/3">
+          <div className="flex-1 flex justify-center">
             <div className="relative w-full max-w-md">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input 

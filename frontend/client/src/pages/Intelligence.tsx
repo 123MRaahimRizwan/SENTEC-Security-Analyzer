@@ -1,4 +1,5 @@
 
+import { useState } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -6,14 +7,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 // import { MOCK_THREAT_INTEL } from "@/lib/mock-data";
-import { Search, TrendingUp, Eye, RefreshCw, AlertTriangle, Shield, ExternalLink } from "lucide-react";
+import { Search, TrendingUp, Eye, RefreshCw, AlertTriangle, Shield, ExternalLink, Menu } from "lucide-react";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { getApiUrl } from "@/lib/api-config";
-import { useState } from "react";
 import generatedImage from '@assets/generated_images/dark_cybersecurity_background_texture.png';
 
-const typeColors = {
+const typeColors: Record<string, string> = {
   cve: "bg-destructive/10 text-destructive border-destructive/20",
   ioc: "bg-primary/10 text-primary border-primary/20",
   threat_feed: "bg-orange-500/10 text-orange-500 border-orange-500/20",
@@ -21,6 +21,7 @@ const typeColors = {
 };
 
 export default function Intelligence() {
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [selectedThreat, setSelectedThreat] = useState<any | null>(null);
   
   const { data: threatIntelData, isLoading } = useQuery({
@@ -40,12 +41,25 @@ export default function Intelligence() {
   // Calculate statistics
   const criticalCVEs = threatIntel.filter((t: any) => t.type === 'cve' && t.severity === 'critical').length;
   const activeFeeds = threatIntel.filter((t: any) => t.type === 'threat_feed').length;
+  const totalIOCs = threatIntel.filter((t: any) => t.type === 'ioc').length;
+  const totalTactics = threatIntel.filter((t: any) => t.type === 'tactic').length;
   const threatSources = threatIntel.length;
-  const coverageScore = threatIntel.length > 0 ? Math.min(100, Math.round((threatIntel.reduce((sum: number, t: any) => sum + (t.score || 0), 0) / threatIntel.length) * 100)) : 0;
+  // Coverage score is the average score (already a percentage 0-1, convert to 0-100)
+  const coverageScore = threatIntel.length > 0 
+    ? Math.round((threatIntel.reduce((sum: number, t: any) => sum + (t.score || 0), 0) / threatIntel.length) * 100)
+    : 0;
   
   return (
     <div className="flex min-h-screen bg-background text-foreground font-sans">
-      <Sidebar />
+      <button
+        className="fixed top-4 left-4 z-40 p-2 rounded-full bg-background/60 border border-border shadow-sm transition-colors hover:bg-primary/10 hover:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+        onClick={() => setSidebarOpen((open) => !open)}
+        aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
+        style={{ transition: 'left 0.2s', left: sidebarOpen ? '272px' : '16px' }}
+      >
+        <Menu className="h-5 w-5 text-muted-foreground" />
+      </button>
+      {sidebarOpen && <Sidebar />}
       
       <main className="flex-1 flex flex-col h-screen overflow-hidden relative">
         <div className="absolute inset-0 z-0 opacity-20 pointer-events-none">
@@ -55,7 +69,7 @@ export default function Intelligence() {
         </div>
 
         <header className="h-16 border-b border-border/50 bg-background/50 backdrop-blur-md px-8 flex items-center justify-between z-10 shrink-0">
-          <div className="flex items-center gap-4 w-1/3">
+          <div className="flex-1 flex justify-center">
             <div className="relative w-full max-w-md">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input 
@@ -88,20 +102,20 @@ export default function Intelligence() {
               </Card>
               <Card className="bg-card/40 border-border/50 backdrop-blur-sm">
                 <CardContent className="pt-6">
-                  <div className="text-2xl font-bold font-mono">{activeFeeds}</div>
+                  <div className="text-2xl font-bold font-mono text-orange-500">{activeFeeds}</div>
                   <p className="text-xs text-muted-foreground uppercase tracking-widest mt-1">Active Feeds</p>
                 </CardContent>
               </Card>
               <Card className="bg-card/40 border-border/50 backdrop-blur-sm">
                 <CardContent className="pt-6">
-                  <div className="text-2xl font-bold font-mono text-primary">{threatSources}</div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-widest mt-1">Threat Sources</p>
+                  <div className="text-2xl font-bold font-mono text-primary">{totalIOCs}</div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-widest mt-1">IOCs Detected</p>
                 </CardContent>
               </Card>
               <Card className="bg-card/40 border-border/50 backdrop-blur-sm">
                 <CardContent className="pt-6">
-                  <div className="text-2xl font-bold font-mono">{coverageScore}%</div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-widest mt-1">Coverage Score</p>
+                  <div className="text-2xl font-bold font-mono text-purple-500">{totalTactics}</div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-widest mt-1">MITRE Tactics</p>
                 </CardContent>
               </Card>
             </div>
