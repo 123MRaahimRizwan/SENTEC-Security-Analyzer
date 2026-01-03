@@ -1121,7 +1121,8 @@ def root():
         }
     })
 
+# Initialize backend on import (works with both Flask dev server and gunicorn)
+initialize_backend()
+
 if __name__ == "__main__":
-    # Initialize backend on startup
-    initialize_backend()
     app.run(debug=True, port=5000)

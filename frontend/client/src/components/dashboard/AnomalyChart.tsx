@@ -22,7 +22,9 @@ export function AnomalyChart({ enabled = true }: AnomalyChartProps = {}) {
       return res.json();
     },
     enabled: enabled, // Only fetch if enabled
-    refetchInterval: enabled ? 30000 : false, // Only refetch if enabled
+    refetchInterval: enabled ? 60000 : false, // Refetch every 60s instead of 30s
+    staleTime: 50000, // Consider data fresh for 50s
+    refetchOnWindowFocus: false, // Don't refetch on window focus
   });
 
   // Handle both new format (with data, attack_lines, time_range) and legacy format (array)

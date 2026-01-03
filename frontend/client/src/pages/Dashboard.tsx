@@ -196,6 +196,10 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ["assets"] });
       queryClient.invalidateQueries({ queryKey: ["reports"] });
       queryClient.invalidateQueries({ queryKey: ["anomaly-chart-data"] });
+      queryClient.invalidateQueries({ queryKey: ["metrics"] });
+      queryClient.invalidateQueries({ queryKey: ["backend-health"] });
+      // Force refetch everything immediately
+      queryClient.refetchQueries();
       // Clear success message after 5 seconds, but keep the data visible permanently
       setTimeout(() => {
         setUploadStatus(prev => {

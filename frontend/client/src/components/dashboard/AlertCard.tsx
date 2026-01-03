@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { AlertTriangle, BookOpen, CheckCircle, ChevronRight, ExternalLink, Shield, ShieldCheck, Zap, Brain, Loader2, Star } from "lucide-react";
 import { motion } from "framer-motion";
 import { apiRequest } from "@/lib/queryClient";
@@ -81,108 +82,115 @@ export function AlertCard({ alert, index }: AlertCardProps) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: index * 0.1 }}
     >
-      <Card className="border-l-4 border-l-destructive bg-card/50 backdrop-blur-sm overflow-hidden group hover:bg-card/80 transition-all duration-300 shadow-lg hover:shadow-destructive/5">
-        <CardHeader className="pb-3">
-          <div className="flex justify-between items-start">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="border-destructive/50 text-destructive bg-destructive/10 uppercase tracking-widest text-[10px] font-mono">
+      <Card className="border-l-4 border-l-destructive bg-card/50 backdrop-blur-sm overflow-hidden group hover:bg-card/80 transition-all duration-300 shadow-md hover:shadow-destructive/5">
+        <CardHeader className="pb-2 pt-3 px-4">
+          <div className="flex justify-between items-start gap-2">
+            <div className="space-y-0.5 flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <Badge variant="outline" className="border-destructive/50 text-destructive bg-destructive/10 uppercase tracking-widest text-[9px] font-mono px-1.5 py-0">
                   {alert.severity}
                 </Badge>
-                <span className="text-xs font-mono text-muted-foreground">{alert.timestamp}</span>
-                <span className="text-xs font-mono text-muted-foreground">ID: {alert.id}</span>
+                <span className="text-[10px] font-mono text-muted-foreground truncate">{new Date(alert.timestamp).toLocaleTimeString()}</span>
               </div>
-              <CardTitle className="text-xl font-display text-foreground group-hover:text-primary transition-colors">
+              <CardTitle className="text-base font-display text-foreground group-hover:text-primary transition-colors line-clamp-1">
                 {alert.title}
               </CardTitle>
             </div>
-            <div className="h-8 w-8 rounded-full bg-destructive/10 flex items-center justify-center text-destructive animate-pulse">
-              <AlertTriangle className="h-5 w-5" />
+            <div className="h-6 w-6 rounded-full bg-destructive/10 flex items-center justify-center text-destructive flex-shrink-0">
+              <AlertTriangle className="h-3.5 w-3.5" />
             </div>
           </div>
-          <CardDescription className="text-muted-foreground/80 mt-2">
+          <CardDescription className="text-xs text-muted-foreground/80 mt-1 line-clamp-2">
             {alert.description}
           </CardDescription>
         </CardHeader>
         
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-3 px-4 pb-3">
           {/* Anomaly Highlight */}
-          <div className="bg-background/50 rounded-md p-3 border border-border/50 text-sm">
-            <div className="flex items-center gap-2 text-muted-foreground mb-1">
+          <div className="bg-background/50 rounded-md p-2 border border-border/50 text-xs">
+            <div className="flex items-center gap-1.5 text-muted-foreground mb-0.5">
               <Zap className="h-3 w-3" />
-              <span className="text-xs uppercase font-semibold tracking-wider">Detected Anomaly</span>
+              <span className="text-[10px] uppercase font-semibold tracking-wider">Anomaly</span>
             </div>
-            <div className="flex justify-between items-center font-mono text-xs">
-              <span>{alert.anomalies[0].metric}: <span className="text-foreground">{alert.anomalies[0].value.toLocaleString()}</span></span>
-              <span className="text-destructive">+{alert.anomalies[0].deviation.toFixed(2)}% Deviation</span>
+            <div className="flex justify-between items-center font-mono text-[10px]">
+              <span className="truncate">{alert.anomalies[0].metric}: <span className="text-foreground">{alert.anomalies[0].value.toLocaleString()}</span></span>
+              <span className="text-destructive text-[10px] ml-2 flex-shrink-0">+{alert.anomalies[0].deviation.toFixed(1)}%</span>
             </div>
           </div>
 
           {/* RAG Context Section */}
-          <div className="relative pl-4 border-l-2 border-primary/30 space-y-3">
-            <div className="absolute -left-[5px] -top-1 h-2 w-2 rounded-full bg-primary animate-ping opacity-75"></div>
-            <div className="absolute -left-[5px] -top-1 h-2 w-2 rounded-full bg-primary"></div>
+          <div className="relative pl-3 border-l-2 border-primary/30 space-y-2">
+            <div className="absolute -left-[5px] -top-0.5 h-1.5 w-1.5 rounded-full bg-primary"></div>
             
-            <div className="flex items-center gap-2 text-primary mb-2">
-              <ShieldCheck className="h-4 w-4" />
-              <span className="text-xs font-bold uppercase tracking-wider">RAG Intelligence Enrichment</span>
+            <div className="flex items-center gap-1.5 text-primary">
+              <ShieldCheck className="h-3 w-3" />
+              <span className="text-[10px] font-bold uppercase tracking-wider">RAG Intelligence</span>
             </div>
 
-            <div className="bg-primary/5 rounded border border-primary/10 p-3">
-              <p className="text-sm text-foreground/90 leading-relaxed italic">
+            <div className="bg-primary/5 rounded border border-primary/10 p-2">
+              <p className="text-xs text-foreground/90 leading-snug italic line-clamp-2">
                 "{alert.ragContext.summary}"
               </p>
-              <div className="flex items-center gap-2 mt-3 text-xs text-primary/70">
-                <BookOpen className="h-3 w-3" />
-                <span className="font-mono">Source: {alert.ragContext.citation}</span>
-                <Badge variant="secondary" className="ml-auto text-[10px] bg-primary/10 text-primary border-primary/20">
-                  {(alert.ragContext.confidence * 100).toFixed(0)}% Confidence
+              <div className="flex items-center gap-1.5 mt-2 text-[10px] text-primary/70">
+                <BookOpen className="h-2.5 w-2.5" />
+                <span className="font-mono truncate flex-1">{alert.ragContext.citation}</span>
+                <Badge variant="secondary" className="text-[9px] bg-primary/10 text-primary border-primary/20 px-1.5 py-0">
+                  {(alert.ragContext.confidence * 100).toFixed(0)}%
                 </Badge>
               </div>
             </div>
           </div>
 
-          {/* Mitigation Plan */}
-          <div>
-            <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-              <Shield className="h-4 w-4 text-muted-foreground" />
-              Recommended Mitigation
-            </h4>
-            <ul className="space-y-2">
-              {alert.mitigationPlan.map((step, i) => (
-                <li key={i} className="flex items-start gap-3 text-sm text-muted-foreground">
-                  <CheckCircle className="h-4 w-4 text-emerald-500 mt-0.5 shrink-0" />
-                  <span>{step}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
+          {/* Mitigation Plan - Collapsed by default for compactness */}
+          <Collapsible>
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" size="sm" className="w-full justify-between h-7 px-2 text-xs">
+                <span className="flex items-center gap-1.5">
+                  <Shield className="h-3 w-3 text-muted-foreground" />
+                  Mitigation Steps ({alert.mitigationPlan.length})
+                </span>
+                <ChevronRight className="h-3 w-3" />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-1">
+              <ul className="space-y-1">
+                {alert.mitigationPlan.map((step, i) => (
+                  <li key={i} className="flex items-start gap-2 text-[10px] text-muted-foreground">
+                    <CheckCircle className="h-3 w-3 text-emerald-500 mt-0.5 shrink-0" />
+                    <span className="leading-tight">{step}</span>
+                  </li>
+                ))}
+              </ul>
+            </CollapsibleContent>
+          </Collapsible>
         </CardContent>
 
-        <CardFooter className="pt-2 pb-4 bg-muted/20 border-t border-border/50">
-          <div className="flex gap-2 w-full">
+        <CardFooter className="pt-2 pb-2 px-3 bg-muted/20 border-t border-border/50">
+          <div className="flex gap-1.5 w-full">
             <Button
-              className="flex-1 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 hover:border-primary/50"
+              className="flex-1 h-8 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 hover:border-primary/50 text-xs"
               variant="outline"
+              size="sm"
               onClick={fetchLlmResponse}
               disabled={loadingLlm}
             >
               {loadingLlm ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Analyzing...
+                  <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+                  <span className="text-[10px]">Analyzing...</span>
                 </>
               ) : (
                 <>
-                  <Brain className="mr-2 h-4 w-4" />
-                  Analyze with RAG
+                  <Brain className="mr-1.5 h-3 w-3" />
+                  <span className="text-[10px]">Analyze</span>
                 </>
               )}
             </Button>
 
             <Button 
-              className="flex-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 border border-emerald-500/20 hover:border-emerald-500/50 disabled:opacity-50"
+              className="flex-1 h-8 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 border border-emerald-500/20 hover:border-emerald-500/50 disabled:opacity-50 text-xs"
               variant="outline"
+              size="sm"
               disabled={!llmResponse}
               onClick={() => {
                 if (llmResponse) {
@@ -190,13 +198,8 @@ export function AlertCard({ alert, index }: AlertCardProps) {
                 }
               }}
             >
-              <Brain className="mr-2 h-4 w-4" />
-              View LLM Response
-            </Button>
-
-            <Button className="flex-1 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 hover:border-primary/50" variant="outline">
-              Initiate Response Playbook
-              <ChevronRight className="ml-2 h-4 w-4" />
+              <ExternalLink className="mr-1.5 h-3 w-3" />
+              <span className="text-[10px]">Details</span>
             </Button>
           </div>
         </CardFooter>
