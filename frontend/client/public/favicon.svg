@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Background gradient -->
+  <defs>
+    <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0ea5e9;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#3b82f6;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#22d3ee;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#06b6d4;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Dark background circle -->
+  <circle cx="32" cy="32" r="32" fill="#0f172a"/>
+  
+  <!-- Shield outline -->
+  <path d="M32 8L48 14V28C48 38 42 46 32 52C22 46 16 38 16 28V14L32 8Z" 
+        fill="url(#shieldGrad)" stroke="url(#accentGrad)" stroke-width="1.5"/>
+  
+  <!-- Security lock symbol -->
+  <rect x="27" y="28" width="10" height="12" rx="1" fill="#0f172a"/>
+  <path d="M28 28V24C28 21.8 29.8 20 32 20C34.2 20 36 21.8 36 24V28" 
+        stroke="#0f172a" stroke-width="2" fill="none" stroke-linecap="round"/>
+  
+  <!-- Small accent dot (keyhole) -->
+  <circle cx="32" cy="33" r="1.5" fill="#22d3ee"/>
+  <rect x="31.2" y="33" width="1.6" height="3" rx="0.5" fill="#22d3ee"/>
+  
+  <!-- Cyber grid accent -->
+  <circle cx="20" cy="20" r="1" fill="#3b82f6" opacity="0.6"/>
+  <circle cx="44" cy="20" r="1" fill="#3b82f6" opacity="0.6"/>
+  <circle cx="20" cy="44" r="1" fill="#3b82f6" opacity="0.6"/>
+  <circle cx="44" cy="44" r="1" fill="#3b82f6" opacity="0.6"/>
+</svg>

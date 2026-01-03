@@ -51,6 +51,28 @@ export default function Dashboard() {
   
   const hasFewerUploadedThanTop10 = uploadedAlerts.length > 0 && uploadedAlerts.length < TOP_ALERTS_COUNT;
 
+  // Auto-clear backend data on every page refresh
+  useEffect(() => {
+    const clearBackendOnLoad = async () => {
+      try {
+        await fetch(getApiUrl("api/clear-all-data"), {
+          method: "POST",
+          credentials: "include"
+        });
+        // Clear local state as well
+        setUploadedAlerts([]);
+        setUploadedFileData(null);
+        setUploadStatus({ type: 'idle' });
+        
+        console.log("[INFO] Cleared backend data on page load");
+      } catch (error) {
+        console.error("[ERROR] Failed to clear backend data on load:", error);
+      }
+    };
+    
+    clearBackendOnLoad();
+  }, []); // Run only once on mount
+
   // Check backend connection on mount
   useQuery({
     queryKey: ["backend-health"],
