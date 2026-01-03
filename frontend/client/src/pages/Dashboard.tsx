@@ -456,16 +456,23 @@ export default function Dashboard() {
                     <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-widest mb-4">System Health</h3>
                     <div className="space-y-6">
                       <div className="flex justify-between items-end">
-                        <span className="text-4xl font-mono font-bold text-foreground">98.2%</span>
-                        <span className="text-sm text-emerald-500 font-medium mb-1">Operational</span>
+                        <span className="text-4xl font-mono font-bold text-foreground">
+                          {uploadedAlerts.length === 0 ? '100' : (100 - Math.min(100, (uploadedAlerts.length / (uploadedFileData?.total_events || 100)) * 100)).toFixed(1)}%
+                        </span>
+                        <span className="text-sm text-emerald-500 font-medium mb-1">
+                          {uploadedAlerts.length === 0 ? 'Optimal' : uploadedAlerts.length < 5 ? 'Operational' : 'Monitoring'}
+                        </span>
                       </div>
                       <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
-                        <div className="h-full bg-emerald-500 w-[98.2%]"></div>
+                        <div 
+                          className="h-full bg-emerald-500 transition-all duration-500" 
+                          style={{ width: `${uploadedAlerts.length === 0 ? 100 : (100 - Math.min(100, (uploadedAlerts.length / (uploadedFileData?.total_events || 100)) * 100)).toFixed(1)}%` }}
+                        ></div>
                       </div>
                       <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border/50">
                         <div>
                           <p className="text-xs text-muted-foreground">Active Threats</p>
-                          <p className="text-2xl font-mono font-bold text-destructive">3</p>
+                          <p className="text-2xl font-mono font-bold text-destructive">{uploadedAlerts.length}</p>
                         </div>
                         <div>
                           <p className="text-xs text-muted-foreground">Analyzed Events</p>

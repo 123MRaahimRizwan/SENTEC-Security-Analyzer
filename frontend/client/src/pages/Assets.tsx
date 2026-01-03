@@ -162,7 +162,7 @@ export default function Assets() {
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground uppercase tracking-widest mb-2">Vulnerability Breakdown</p>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           {asset.criticalVulns > 0 && (
                             <Badge className="bg-destructive/20 text-destructive border-destructive/30 text-[10px]">
                               {asset.criticalVulns} Critical
@@ -173,9 +173,19 @@ export default function Assets() {
                               {asset.highVulns} High
                             </Badge>
                           )}
-                          {asset.criticalVulns === 0 && asset.highVulns === 0 && (
+                          {asset.mediumVulns > 0 && (
+                            <Badge className="bg-yellow-500/20 text-yellow-500 border-yellow-500/30 text-[10px]">
+                              {asset.mediumVulns} Medium
+                            </Badge>
+                          )}
+                          {asset.lowVulns > 0 && (
+                            <Badge className="bg-blue-500/20 text-blue-500 border-blue-500/30 text-[10px]">
+                              {asset.lowVulns} Low
+                            </Badge>
+                          )}
+                          {asset.vulnerabilities === 0 && (
                             <Badge className="bg-emerald-500/20 text-emerald-500 border-emerald-500/30 text-[10px]">
-                              No Critical/High
+                              No Vulnerabilities
                             </Badge>
                           )}
                         </div>

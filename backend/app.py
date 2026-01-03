@@ -790,7 +790,7 @@ def upload_logs():
                 if source_ip and source_ip != 'unknown':
                     unique_ips.add(source_ip)
                     if source_ip not in ip_vulnerabilities:
-                        ip_vulnerabilities[source_ip] = {"critical": 0, "high": 0, "total": 0}
+                        ip_vulnerabilities[source_ip] = {"critical": 0, "high": 0, "medium": 0, "low": 0, "total": 0}
             
             for alert in alerts:
                 ip = alert.get('source', '')
@@ -799,11 +799,15 @@ def upload_logs():
                         ip_vulnerabilities[ip]['critical'] += 1
                     elif alert['severity'] == 'high':
                         ip_vulnerabilities[ip]['high'] += 1
+                    elif alert['severity'] == 'medium':
+                        ip_vulnerabilities[ip]['medium'] += 1
+                    elif alert['severity'] == 'low':
+                        ip_vulnerabilities[ip]['low'] += 1
                     ip_vulnerabilities[ip]['total'] += 1
             
             new_assets = []
             for idx, ip in enumerate(unique_ips):
-                vulns = ip_vulnerabilities.get(ip, {"critical": 0, "high": 0, "total": 0})
+                vulns = ip_vulnerabilities.get(ip, {"critical": 0, "high": 0, "medium": 0, "low": 0, "total": 0})
                 asset_id = f"AST-{idx+1:03d}"
                 status = "critical" if vulns['critical'] > 0 else "warning" if vulns['high'] > 0 or vulns['total'] > 0 else "healthy"
                 asset_type = "server" if ip.startswith(("10.", "192.168.")) else "network"
@@ -817,6 +821,8 @@ def upload_logs():
                     "lastScanned": datetime.now().isoformat(),
                     "criticalVulns": vulns['critical'],
                     "highVulns": vulns['high'],
+                    "mediumVulns": vulns['medium'],
+                    "lowVulns": vulns['low'],
                     "ip": ip
                 }
                 new_assets.append(asset)
