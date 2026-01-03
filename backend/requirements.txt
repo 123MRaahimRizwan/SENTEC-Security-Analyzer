@@ -19,7 +19,7 @@ tzdata==2025.3
 Werkzeug==3.1.4
 pypdf==3.17.4
 nltk==3.8.1
-qdrant-client==1.7.0
+qdrant-client==1.7.3
 sentence-transformers==2.6.1
 torch==2.1.0
 torchvision==0.16.0
@@ -27,5 +27,4 @@ torchaudio==2.1.0
 transformers==4.35.0
 huggingface-hub==0.16.4
 groq
-
 gunicorn>=21.2.0
