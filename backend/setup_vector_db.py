@@ -2,6 +2,7 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import VectorParams, Distance, PointStruct
 from sentence_transformers import SentenceTransformer
 import atexit
+import os
 
 from pdf_injestion import run_pdf_ingestion_pipeline
 
@@ -17,16 +18,23 @@ def _get_or_create_client():
     """Get or create Qdrant client (lazy initialization to avoid lock issues)."""
     global _client
     if _client is None:
-        try:
-            _client = QdrantClient(path="./qdrant_db")  # Persistent storage
-        except RuntimeError as e:
-            if "already accessed by another instance" in str(e):
-                print("Warning: Qdrant database is locked by another process.")
-                print("Please close other Python processes using the database, or use in-memory storage.")
-                print("Switching to in-memory storage for this session...")
-                _client = QdrantClient(":memory:")  # Fallback to in-memory
-            else:
-                raise
+        # Check if running on Hugging Face Spaces
+        is_hf_space = os.getenv("SPACE_ID") is not None
+        
+        if is_hf_space:
+            print("Running on Hugging Face Spaces - using in-memory storage")
+            _client = QdrantClient(":memory:")
+        else:
+            try:
+                _client = QdrantClient(path="./qdrant_db")  # Persistent storage
+            except RuntimeError as e:
+                if "already accessed by another instance" in str(e):
+                    print("Warning: Qdrant database is locked by another process.")
+                    print("Please close other Python processes using the database, or use in-memory storage.")
+                    print("Switching to in-memory storage for this session...")
+                    _client = QdrantClient(":memory:")  # Fallback to in-memory
+                else:
+                    raise
     return _client
 
 def setup_qdrant(pdf_path=None):
