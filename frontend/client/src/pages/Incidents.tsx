@@ -38,7 +38,17 @@ export default function Incidents() {
   // Calculate statistics
   const activeIncidents = incidents.filter((i: any) => i.status === 'open' || i.status === 'in_progress').length;
   const resolvedIncidents = incidents.filter((i: any) => i.status === 'resolved' || i.status === 'closed').length;
-  const avgResponseTime = "2.3h"; // Could be calculated from timeline data
+  
+  // Count incidents related to high-risk attack types (matches threat intel critical CVEs)
+  const highRiskAttackTypes = ['SQL_INJECTION', 'XSS', 'COMMAND_INJECTION', 'PATH_TRAVERSAL', 'DOS', 'BRUTE_FORCE'];
+  const criticalIncidents = incidents.filter((i: any) => {
+    const title = (i.title || '').toUpperCase();
+    return (i.status === 'open' || i.status === 'in_progress') && 
+           highRiskAttackTypes.some(attackType => 
+             title.includes(attackType) || title.includes(attackType.replace('_', ' '))
+           );
+  }).length;
+  
   const resolutionRate = incidents.length > 0 ? Math.round((resolvedIncidents / incidents.length) * 100) : 0;
   
   return (
@@ -100,8 +110,8 @@ export default function Incidents() {
               </Card>
               <Card className="bg-card/40 border-border/50 backdrop-blur-sm">
                 <CardContent className="pt-6">
-                  <div className="text-2xl font-bold font-mono text-primary">{avgResponseTime}</div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-widest mt-1">Avg Response Time</p>
+                  <div className="text-2xl font-bold font-mono text-destructive">{criticalIncidents}</div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-widest mt-1">High-Risk Attacks</p>
                 </CardContent>
               </Card>
               <Card className="bg-card/40 border-border/50 backdrop-blur-sm">

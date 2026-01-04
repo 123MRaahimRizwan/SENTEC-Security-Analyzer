@@ -31,6 +31,22 @@ const typeColors = {
   network: "bg-teal-500/10 text-teal-500"
 };
 
+// Format time to show in Pakistan timezone (UTC+5)
+const formatScanTime = (timestamp: string) => {
+  const scanned = new Date(timestamp);
+  // Add 5 hours for Pakistan Standard Time (PKT = UTC+5)
+  const pktTime = new Date(scanned.getTime() + (5 * 60 * 60 * 1000));
+  return pktTime.toLocaleString('en-GB', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+};
+
 export default function Assets() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const { data: assetsData, isLoading } = useQuery({
@@ -45,8 +61,75 @@ export default function Assets() {
     refetchInterval: 30000,
   });
   
+  const { data: incidentsData } = useQuery({
+    queryKey: ["incidents"],
+    queryFn: async () => {
+      const res = await fetch(getApiUrl("api/incidents"), { credentials: "include" });
+      if (!res.ok) {
+        throw new Error("Failed to fetch incidents");
+      }
+      return res.json();
+    },
+    refetchInterval: 30000,
+  });
+  
   const assets = assetsData || [];
-  const criticalCount = assets.filter((a: any) => a.status === 'critical').length;
+  const incidents = incidentsData || [];
+  
+  // Helper function to check if asset has high-risk attacks
+  const hasHighRiskAttacks = (asset: any) => {
+    const highRiskAttackTypes = ['SQL_INJECTION', 'XSS', 'COMMAND_INJECTION', 'PATH_TRAVERSAL', 'DOS', 'BRUTE_FORCE'];
+    const assetIp = asset.ip;
+    
+    return incidents.some((incident: any) => {
+      const description = incident.description || '';
+      const title = (incident.title || '').toUpperCase();
+      const isHighRisk = highRiskAttackTypes.some(attackType => 
+        title.includes(attackType) || title.includes(attackType.replace('_', ' '))
+      );
+      const isFromThisAsset = description.includes(assetIp);
+      return isHighRisk && isFromThisAsset;
+    });
+  };
+  
+  // Helper function to get adjusted vulnerability counts for an asset
+  const getAdjustedVulnCounts = (asset: any) => {
+    const highRiskAttackTypes = ['SQL_INJECTION', 'XSS', 'COMMAND_INJECTION', 'PATH_TRAVERSAL', 'DOS', 'BRUTE_FORCE'];
+    const assetIp = asset.ip;
+    
+    // Count how many high-risk incidents this asset has
+    const highRiskCount = incidents.filter((incident: any) => {
+      const description = incident.description || '';
+      const title = (incident.title || '').toUpperCase();
+      const isHighRisk = highRiskAttackTypes.some(attackType => 
+        title.includes(attackType) || title.includes(attackType.replace('_', ' '))
+      );
+      const isFromThisAsset = description.includes(assetIp);
+      return isHighRisk && isFromThisAsset;
+    }).length;
+    
+    // If there are high-risk attacks, reclassify them as critical/high
+    if (highRiskCount > 0) {
+      const remaining = Math.max(0, asset.lowVulns - highRiskCount);
+      return {
+        critical: asset.criticalVulns + highRiskCount,
+        high: asset.highVulns,
+        medium: asset.mediumVulns,
+        low: remaining
+      };
+    }
+    
+    return {
+      critical: asset.criticalVulns,
+      high: asset.highVulns,
+      medium: asset.mediumVulns,
+      low: asset.lowVulns
+    };
+  };
+  
+  const criticalCount = assets.filter((a: any) => 
+    a.status === 'critical' || hasHighRiskAttacks(a)
+  ).length;
   const warningCount = assets.filter((a: any) => a.status === 'warning').length;
   const healthyCount = assets.filter((a: any) => a.status === 'healthy').length;
 
@@ -128,7 +211,9 @@ export default function Assets() {
                     <p className="text-muted-foreground">Loading assets...</p>
                   </CardContent>
                 </Card>
-              ) : assets.length > 0 ? assets.map((asset: any, idx: number) => (
+              ) : assets.length > 0 ? assets.map((asset: any, idx: number) => {
+                const vulnCounts = getAdjustedVulnCounts(asset);
+                return (
                 <motion.div
                   key={asset.id}
                   initial={{ opacity: 0, y: 10 }}
@@ -167,30 +252,30 @@ export default function Assets() {
                         </div>
                         <div>
                           <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1">Last Scanned</p>
-                          <p className="text-sm font-mono">{new Date(asset.lastScanned).toLocaleString()}</p>
+                          <p className="text-sm font-mono">{formatScanTime(asset.lastScanned)}</p>
                         </div>
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground uppercase tracking-widest mb-2">Vulnerability Breakdown</p>
                         <div className="flex items-center gap-2 flex-wrap">
-                          {asset.criticalVulns > 0 && (
+                          {vulnCounts.critical > 0 && (
                             <Badge className="bg-destructive/20 text-destructive border-destructive/30 text-[10px]">
-                              {asset.criticalVulns} Critical
+                              {vulnCounts.critical} Critical
                             </Badge>
                           )}
-                          {asset.highVulns > 0 && (
+                          {vulnCounts.high > 0 && (
                             <Badge className="bg-orange-500/20 text-orange-500 border-orange-500/30 text-[10px]">
-                              {asset.highVulns} High
+                              {vulnCounts.high} High
                             </Badge>
                           )}
-                          {asset.mediumVulns > 0 && (
+                          {vulnCounts.medium > 0 && (
                             <Badge className="bg-yellow-500/20 text-yellow-500 border-yellow-500/30 text-[10px]">
-                              {asset.mediumVulns} Medium
+                              {vulnCounts.medium} Medium
                             </Badge>
                           )}
-                          {asset.lowVulns > 0 && (
+                          {vulnCounts.low > 0 && (
                             <Badge className="bg-blue-500/20 text-blue-500 border-blue-500/30 text-[10px]">
-                              {asset.lowVulns} Low
+                              {vulnCounts.low} Low
                             </Badge>
                           )}
                           {asset.vulnerabilities === 0 && (
@@ -203,7 +288,8 @@ export default function Assets() {
                     </CardContent>
                   </Card>
                 </motion.div>
-              )) : (
+              );
+              }) : (
                 <Card className="bg-card/40 border-border/50 backdrop-blur-sm col-span-2">
                   <CardContent className="p-8 text-center">
                     <p className="text-muted-foreground">No assets detected</p>

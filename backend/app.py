@@ -845,24 +845,7 @@ def upload_logs():
             # Generate security report
             report_id = f"RPT-{datetime.now().strftime('%Y%m%d')}-{len(uploaded_reports) + 1:03d}"
             anomaly_rate = (len(alerts) / len(uploaded_df) * 100) if len(uploaded_df) > 0 else 0
-            
-            # Calculate security score on a 0-100 scale
-            # Use exponential decay for more realistic scoring
-            # Perfect score = 100, degrades exponentially with anomaly rate
-            if anomaly_rate == 0:
-                security_score = 100
-            elif anomaly_rate < 1:
-                security_score = 95
-            elif anomaly_rate < 5:
-                security_score = 85
-            elif anomaly_rate < 10:
-                security_score = 70
-            elif anomaly_rate < 20:
-                security_score = 50
-            elif anomaly_rate < 30:
-                security_score = 30
-            else:
-                security_score = max(0, int(100 - (anomaly_rate * 2)))
+            security_score = max(0, 100 - (anomaly_rate * 2))  # Lower score for higher anomaly rate
             
             report = {
                 "id": report_id,
@@ -979,212 +962,74 @@ def clear_all_data():
 
 @app.route("/api/reports/<report_id>", methods=["GET"])
 def get_report_details(report_id):
-    """Get comprehensive security report with all critical information"""
-    global uploaded_reports, uploaded_incidents, uploaded_threat_intel, uploaded_assets, uploaded_alerts, uploaded_chart_data, last_upload_summary
+    """Get detailed information for a specific report"""
+    global uploaded_reports, uploaded_incidents, uploaded_threat_intel, uploaded_assets, feature_dict, anomaly_model, log_df
     
     # Find the report
     report = next((r for r in uploaded_reports if r.get('id') == report_id), None)
     if not report:
         return jsonify({"error": "Report not found"}), 404
     
-    # Get all uploaded data (from the same upload that generated this report)
-    related_incidents = uploaded_incidents
-    related_threats = uploaded_threat_intel
-    related_assets = uploaded_assets
-    related_alerts = uploaded_alerts
+    # Get related data
+    related_incidents = [inc for inc in uploaded_incidents if inc.get('createdAt', '').startswith(report.get('generatedAt', '')[:10])]
+    related_threats = uploaded_threat_intel[:5] if len(uploaded_threat_intel) > 0 else []  # Top 5 threats
+    related_assets = uploaded_assets[:10] if len(uploaded_assets) > 0 else []  # Top 10 assets
     
-    # === EXECUTIVE SUMMARY ===
-    total_events = last_upload_summary.get('total_events', 0) if last_upload_summary else 0
-    total_anomalies = len(related_alerts)
-    anomaly_rate = (total_anomalies / total_events * 100) if total_events > 0 else 0
+    # Get alerts from the upload that generated this report
+    # We'll need to track which alerts belong to which report
+    # For now, get all recent alerts
+    related_alerts = []
+    try:
+        if feature_dict is not None and anomaly_model is not None and log_df is not None:
+            x = feature_dict['feature_matrix']
+            x_dense = x.copy()
+            for col in x_dense.columns:
+                if hasattr(x_dense[col], 'sparse'):
+                    x_dense[col] = x_dense[col].sparse.to_dense()
+            scores = anomaly_model.decision_function(x_dense)
+            predictions = anomaly_model.predict(x_dense)
+            is_anomaly = np.where(predictions == 1, 0, 1)
+            anomaly_indices = np.where(is_anomaly == 1)[0]
+            
+            # Load original logs
+            original_logs_paths = [
+                "./dataset/server_logs.json",
+                "../dataset/server_logs.json",
+                "dataset/server_logs.json"
+            ]
+            original_logs_path = None
+            for path in original_logs_paths:
+                if os.path.exists(path):
+                    original_logs_path = path
+                    break
+            
+            if original_logs_path:
+                with open(original_logs_path, 'r') as f:
+                    original_logs = json.load(f)
+                log_map = {log['event_id']: log for log in original_logs}
+                
+                for idx in anomaly_indices[:20]:  # Top 20 alerts
+                    if idx < len(log_df):
+                        row = log_df.iloc[idx]
+                        event_id = row.get('event_id', f'anomaly_{idx}')
+                        log_entry = log_map.get(event_id, {})
+                        score = float(scores[idx])
+                        
+                        alert = {
+                            "id": event_id,
+                            "title": f"Anomaly Detected",
+                            "description": f"Anomaly from {log_entry.get('source_ip', 'unknown')}",
+                            "timestamp": log_entry.get('timestamp', ''),
+                            "severity": "critical" if score < -0.7 else "high" if score < -0.5 else "medium",
+                            "anomaly_score": float(score)
+                        }
+                        related_alerts.append(alert)
+    except Exception as e:
+        print(f"Error fetching related alerts: {e}")
+        related_alerts = []
     
-    # Severity breakdown
-    severity_counts = {"critical": 0, "high": 0, "medium": 0, "low": 0}
-    for alert in related_alerts:
-        sev = alert.get('severity', 'medium').lower()
-        if sev in severity_counts:
-            severity_counts[sev] += 1
-    
-    # Risk score calculation (0-100, higher is worse)
-    risk_score = min(100, int(anomaly_rate * 2 + severity_counts['critical'] * 5 + severity_counts['high'] * 2))
-    
-    executive_summary = {
-        "total_events_analyzed": total_events,
-        "total_threats_detected": total_anomalies,
-        "anomaly_rate": f"{anomaly_rate:.2f}%",
-        "security_score": report.get('score', 0),
-        "risk_score": risk_score,
-        "risk_level": "Critical" if risk_score > 70 else "High" if risk_score > 40 else "Medium" if risk_score > 20 else "Low",
-        "critical_findings": severity_counts['critical'],
-        "high_findings": severity_counts['high'],
-        "medium_findings": severity_counts['medium'],
-        "low_findings": severity_counts['low'],
-        "total_incidents": len(related_incidents),
-        "total_assets_affected": len(related_assets),
-        "report_period": report.get('period', 'Unknown'),
-        "generated_at": report.get('generatedAt', ''),
-        "trend": report.get('trend', 'stable')
-    }
-    
-    # === THREAT LANDSCAPE OVERVIEW ===
-    attack_type_distribution = {}
-    attack_type_severity = {}
-    for alert in related_alerts:
-        attack_type = alert.get('attack_type', 'Unknown')
-        severity = alert.get('severity', 'medium')
-        
-        if attack_type not in attack_type_distribution:
-            attack_type_distribution[attack_type] = 0
-            attack_type_severity[attack_type] = {"critical": 0, "high": 0, "medium": 0, "low": 0}
-        
-        attack_type_distribution[attack_type] += 1
-        if severity in attack_type_severity[attack_type]:
-            attack_type_severity[attack_type][severity] += 1
-    
-    threat_landscape = {
-        "attack_type_distribution": attack_type_distribution,
-        "attack_type_severity": attack_type_severity,
-        "top_attack_types": sorted(attack_type_distribution.items(), key=lambda x: x[1], reverse=True)[:5],
-        "unique_attack_vectors": len(attack_type_distribution)
-    }
-    
-    # === ATTACK TIMELINE ===
-    timeline_events = []
-    for alert in sorted(related_alerts, key=lambda x: x.get('timestamp', '')):
-        timeline_events.append({
-            "timestamp": alert.get('timestamp', ''),
-            "event_id": alert.get('id', ''),
-            "attack_type": alert.get('attack_type', 'Unknown'),
-            "severity": alert.get('severity', 'medium'),
-            "source": alert.get('source', 'unknown'),
-            "endpoint": alert.get('endpoint', ''),
-            "description": alert.get('description', '')
-        })
-    
-    # === TOP THREATS (CVE, MITRE, etc.) ===
-    top_threats = []
-    for threat in related_threats:
-        threat_detail = {
-            "id": threat.get('id', ''),
-            "type": threat.get('type', ''),
-            "title": threat.get('title', ''),
-            "description": threat.get('description', ''),
-            "severity": threat.get('severity', 'medium'),
-            "confidence_score": threat.get('score', 0),
-            "affected_instances": threat.get('sources', 0),
-            "last_updated": threat.get('lastUpdated', ''),
-            "mitre_mapping": get_mitre_mapping(threat.get('title', '')),
-            "recommendations": get_threat_recommendations(threat.get('type', ''), threat.get('title', ''))
-        }
-        top_threats.append(threat_detail)
-    
-    # === AFFECTED ASSETS ANALYSIS ===
-    assets_analysis = {
-        "total_assets": len(related_assets),
-        "critical_assets": len([a for a in related_assets if a.get('status') == 'critical']),
-        "warning_assets": len([a for a in related_assets if a.get('status') == 'warning']),
-        "healthy_assets": len([a for a in related_assets if a.get('status') == 'healthy']),
-        "total_vulnerabilities": sum(a.get('vulnerabilities', 0) for a in related_assets),
-        "asset_details": []
-    }
-    
-    for asset in related_assets:
-        assets_analysis["asset_details"].append({
-            "id": asset.get('id', ''),
-            "name": asset.get('name', ''),
-            "type": asset.get('type', 'unknown'),
-            "ip": asset.get('ip', ''),
-            "status": asset.get('status', 'unknown'),
-            "total_vulnerabilities": asset.get('vulnerabilities', 0),
-            "critical_vulns": asset.get('criticalVulns', 0),
-            "high_vulns": asset.get('highVulns', 0),
-            "medium_vulns": asset.get('mediumVulns', 0),
-            "low_vulns": asset.get('lowVulns', 0),
-            "last_scanned": asset.get('lastScanned', ''),
-            "risk_score": calculate_asset_risk_score(asset)
-        })
-    
-    # === NETWORK TRAFFIC ANALYSIS ===
-    unique_ips = set(alert.get('source', '') for alert in related_alerts if alert.get('source'))
-    unique_endpoints = set(alert.get('endpoint', '') for alert in related_alerts if alert.get('endpoint'))
-    
-    # IP-based statistics
-    ip_threat_count = {}
-    for alert in related_alerts:
-        ip = alert.get('source', 'unknown')
-        if ip not in ip_threat_count:
-            ip_threat_count[ip] = {"total": 0, "critical": 0, "high": 0, "medium": 0, "low": 0}
-        ip_threat_count[ip]["total"] += 1
-        severity = alert.get('severity', 'medium')
-        if severity in ip_threat_count[ip]:
-            ip_threat_count[ip][severity] += 1
-    
-    network_analysis = {
-        "unique_source_ips": len(unique_ips),
-        "unique_endpoints_targeted": len(unique_endpoints),
-        "top_attacking_ips": sorted(ip_threat_count.items(), key=lambda x: x[1]['total'], reverse=True)[:10],
-        "most_targeted_endpoints": get_most_targeted_endpoints(related_alerts),
-        "traffic_patterns": analyze_traffic_patterns(related_alerts)
-    }
-    
-    # === INCIDENT RESPONSE ACTIONS ===
-    incident_actions = []
-    for incident in related_incidents:
-        incident_actions.append({
-            "incident_id": incident.get('id', ''),
-            "title": incident.get('title', ''),
-            "severity": incident.get('severity', 'medium'),
-            "status": incident.get('status', 'open'),
-            "created_at": incident.get('createdAt', ''),
-            "affected_assets": incident.get('affectedAssets', 0),
-            "assigned_to": incident.get('assignedTo', 'Unassigned'),
-            "timeline": incident.get('timeline', []),
-            "recommended_actions": get_incident_recommendations(incident)
-        })
-    
-    # === REMEDIATION RECOMMENDATIONS ===
-    remediation_plan = generate_remediation_plan(
-        related_alerts, 
-        related_threats, 
-        related_assets,
-        attack_type_distribution
-    )
-    
-    # === COMPLIANCE IMPACT ===
-    compliance_impact = assess_compliance_impact(
-        severity_counts,
-        attack_type_distribution,
-        related_assets
-    )
-    
-    # === CHART DATA FOR VISUALIZATION ===
-    chart_data = uploaded_chart_data if uploaded_chart_data else {"data": [], "attack_lines": [], "time_range": {}}
-    
-    # === METRICS AND KPIs ===
-    metrics = {
-        "mean_time_to_detect": calculate_mttr(related_alerts, "detect"),
-        "mean_time_to_respond": calculate_mttr(related_incidents, "respond"),
-        "false_positive_rate": "N/A",  # Would need ground truth
-        "detection_coverage": f"{(len(related_alerts) / total_events * 100):.2f}%" if total_events > 0 else "0%",
-        "severity_distribution": severity_counts,
-        "attack_success_rate": estimate_attack_success_rate(related_alerts)
-    }
-    
-    # === COMPREHENSIVE REPORT RESPONSE ===
     return jsonify({
         "report": report,
-        "executive_summary": executive_summary,
-        "threat_landscape": threat_landscape,
-        "attack_timeline": timeline_events[:50],  # Limit to 50 most recent
-        "top_threats": top_threats,
-        "affected_assets": assets_analysis,
-        "network_analysis": network_analysis,
-        "incident_response": incident_actions,
-        "remediation_plan": remediation_plan,
-        "compliance_impact": compliance_impact,
-        "metrics": metrics,
-        "chart_data": chart_data,
-        "detailed_alerts": related_alerts[:20],  # Top 20 most critical alerts
         "related_incidents": related_incidents,
         "related_threats": related_threats,
         "related_assets": related_assets,
@@ -1193,8 +1038,7 @@ def get_report_details(report_id):
             "total_incidents": len(related_incidents),
             "total_threats": len(related_threats),
             "total_assets": len(related_assets),
-            "total_alerts": len(related_alerts),
-            "security_posture": get_security_posture(risk_score)
+            "total_alerts": len(related_alerts)
         }
     })
 
