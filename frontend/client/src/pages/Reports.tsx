@@ -55,6 +55,21 @@ export default function Reports() {
     enabled: !!selectedReportId,
   });
   
+  // Fetch all incidents separately to avoid date filtering issues
+  const { data: allIncidentsData } = useQuery({
+    queryKey: ["incidents"],
+    queryFn: async () => {
+      const res = await fetch(getApiUrl("api/incidents"), { credentials: "include" });
+      if (!res.ok) {
+        throw new Error("Failed to fetch incidents");
+      }
+      return res.json();
+    },
+    refetchInterval: 30000,
+  });
+  
+  const allIncidents = allIncidentsData || [];
+  
   const reports = reportsData || [];
   
   // Calculate statistics
@@ -159,10 +174,6 @@ export default function Reports() {
                         </div>
                         <div className="text-right space-y-3 flex-shrink-0">
                           {trendIcons[report.trend]}
-                          <div>
-                            <div className="text-2xl font-mono font-bold text-primary">{report.score}</div>
-                            <p className="text-xs text-muted-foreground">Score</p>
-                          </div>
                         </div>
                       </div>
                     </CardHeader>
@@ -223,12 +234,12 @@ export default function Reports() {
                         const pdf = new jsPDF('p', 'mm', 'a4');
                         const pageWidth = 210;
                         const pageHeight = 297;
-                        const margin = 20;
+                        const margin = 15;
                         let yPos = margin;
                         
                         // Helper function to check if we need a new page
                         const checkNewPage = (requiredSpace: number) => {
-                          if (yPos + requiredSpace > pageHeight - margin) {
+                          if (yPos + requiredSpace > pageHeight - 20) {
                             pdf.addPage();
                             yPos = margin;
                             return true;
@@ -236,259 +247,294 @@ export default function Reports() {
                           return false;
                         };
                         
-                        // Helper function to draw a colored box
-                        const drawColoredBox = (x: number, y: number, width: number, height: number, color: number[]) => {
-                          pdf.setFillColor(color[0], color[1], color[2]);
-                          pdf.rect(x, y, width, height, 'F');
+                        // Helper function to draw a card-style box
+                        const drawCard = (x: number, y: number, width: number, height: number, borderColor = [59, 130, 246]) => {
+                          pdf.setFillColor(250, 250, 251);
+                          pdf.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
+                          pdf.setLineWidth(0.5);
+                          pdf.roundedRect(x, y, width, height, 2, 2, 'FD');
+                          pdf.setLineWidth(0.2);
                         };
                         
                         // Helper function to draw section header
                         const drawSectionHeader = (title: string, y: number) => {
-                          // Draw colored header background
-                          pdf.setFillColor(59, 130, 246); // Blue color
-                          pdf.rect(margin, y, pageWidth - 2 * margin, 8, 'F');
-                          
-                          // Draw title
-                          pdf.setTextColor(255, 255, 255);
-                          pdf.setFontSize(14);
+                          pdf.setFontSize(11);
                           pdf.setFont('helvetica', 'bold');
-                          pdf.text(title, margin + 2, y + 6);
+                          pdf.setTextColor(30, 41, 59);
+                          pdf.text(title, margin, y);
                           
-                          // Reset text color
+                          pdf.setDrawColor(226, 232, 240);
+                          pdf.setLineWidth(0.5);
+                          pdf.line(margin, y + 1, pageWidth - margin, y + 1);
+                          
                           pdf.setTextColor(40, 40, 40);
                           pdf.setFont('helvetica', 'normal');
                         };
                         
-                        // Header with colored background
-                        pdf.setFillColor(30, 41, 59); // Dark blue-gray
-                        pdf.rect(0, 0, pageWidth, 35, 'F');
+                        // Header
+                        pdf.setFillColor(30, 41, 59);
+                        pdf.rect(0, 0, pageWidth, 40, 'F');
                         
-                        // Title
                         pdf.setTextColor(255, 255, 255);
-                        pdf.setFontSize(22);
+                        pdf.setFontSize(20);
                         pdf.setFont('helvetica', 'bold');
-                        pdf.text('Security Report', margin, 20);
+                        pdf.text(reportDetails.report.title, margin, 18);
                         
-                        // Subtitle
-                        pdf.setFontSize(12);
+                        pdf.setFontSize(10);
                         pdf.setFont('helvetica', 'normal');
-                        pdf.text(reportDetails.report.title, margin, 28);
+                        pdf.text(`${reportDetails.report.period} • Generated: ${new Date(reportDetails.report.generatedAt).toLocaleString()}`, margin, 28);
+                        pdf.text(`Report ID: ${reportDetails.report.id}`, margin, 35);
                         
-                        yPos = 45;
+                        yPos = 50;
                         
-                        // Metadata box
-                        pdf.setFillColor(249, 250, 251); // Light gray
-                        pdf.rect(margin, yPos, pageWidth - 2 * margin, 25, 'F');
-                        pdf.setDrawColor(229, 231, 235);
-                        pdf.rect(margin, yPos, pageWidth - 2 * margin, 25, 'S');
-                        
-                        pdf.setTextColor(75, 85, 99);
+                        // Summary Card (matching the UI grid)
+                        pdf.setTextColor(100, 116, 139);
                         pdf.setFontSize(9);
-                        pdf.text(`Period: ${reportDetails.report.period}`, margin + 3, yPos + 8);
-                        pdf.text(`Generated: ${new Date(reportDetails.report.generatedAt).toLocaleString()}`, margin + 3, yPos + 14);
-                        pdf.text(`Report ID: ${reportDetails.report.id}`, margin + 3, yPos + 20);
+                        pdf.setFont('helvetica', 'normal');
+                        pdf.text('REPORT SUMMARY', margin, yPos);
+                        yPos += 5;
                         
-                        yPos += 32;
+                        drawCard(margin, yPos, pageWidth - 2 * margin, 35, [59, 130, 246]);
                         
-                        // Executive Summary Section
-                        drawSectionHeader('Executive Summary', yPos);
-                        yPos += 12;
-                        
-                        // Summary metrics in a grid layout
-                        const metrics = [
-                          { label: 'Security Score', value: reportDetails.report.score, color: [59, 130, 246] },
-                          { label: 'Total Findings', value: reportDetails.report.findings, color: [107, 114, 128] },
-                          { label: 'Incidents', value: reportDetails.summary.total_incidents, color: [239, 68, 68] },
-                          { label: 'Threats', value: reportDetails.summary.total_threats, color: [249, 115, 22] },
-                          { label: 'Assets', value: reportDetails.summary.total_assets, color: [34, 197, 94] },
-                          { label: 'Alerts', value: reportDetails.summary.total_alerts, color: [168, 85, 247] }
+                        // Summary metrics in 4-column grid
+                        const summaryMetrics = [
+                          { label: 'SECURITY SCORE', value: reportDetails.report.score, color: [59, 130, 246] },
+                          { label: 'FINDINGS', value: reportDetails.report.findings, color: [71, 85, 105] },
+                          { label: 'CRITICAL', value: allIncidents.filter((i: any) => {
+                            const title = (i.title || '').toUpperCase();
+                            return ['SQL_INJECTION', 'XSS', 'COMMAND_INJECTION', 'PATH_TRAVERSAL', 'DOS', 'BRUTE_FORCE'].some(
+                              attackType => title.includes(attackType) || title.includes(attackType.replace('_', ' '))
+                            );
+                          }).length, color: [239, 68, 68] },
+                          { label: 'THREATS', value: reportDetails.summary.total_threats, color: [249, 115, 22] }
                         ];
                         
-                        const boxWidth = (pageWidth - 2 * margin - 20) / 3;
-                        const boxHeight = 25;
-                        let col = 0;
-                        let row = 0;
-                        
-                        metrics.forEach((metric, index) => {
-                          const x = margin + 5 + col * (boxWidth + 5);
-                          const y = yPos + row * (boxHeight + 5);
+                        const colWidth = (pageWidth - 2 * margin) / 4;
+                        summaryMetrics.forEach((metric, idx) => {
+                          const x = margin + (colWidth * idx) + 5;
+                          const y = yPos + 8;
                           
-                          // Draw colored box
-                          pdf.setFillColor(metric.color[0], metric.color[1], metric.color[2]);
-                          pdf.setDrawColor(metric.color[0], metric.color[1], metric.color[2]);
-                          pdf.roundedRect(x, y, boxWidth, boxHeight, 3, 3, 'FD');
+                          pdf.setFontSize(7);
+                          pdf.setTextColor(100, 116, 139);
+                          pdf.text(metric.label, x, y);
                           
-                          // Draw label
-                          pdf.setTextColor(255, 255, 255);
-                          pdf.setFontSize(8);
-                          pdf.setFont('helvetica', 'normal');
-                          pdf.text(metric.label, x + 3, y + 8);
-                          
-                          // Draw value
-                          pdf.setFontSize(16);
+                          pdf.setFontSize(20);
                           pdf.setFont('helvetica', 'bold');
-                          pdf.text(String(metric.value), x + 3, y + 18);
-                          
-                          // Reset text color
-                          pdf.setTextColor(40, 40, 40);
-                          
-                          col++;
-                          if (col >= 3) {
-                            col = 0;
-                            row++;
-                          }
+                          pdf.setTextColor(metric.color[0], metric.color[1], metric.color[2]);
+                          pdf.text(String(metric.value), x, y + 14);
+                          pdf.setFont('helvetica', 'normal');
                         });
                         
-                        yPos += (row + 1) * (boxHeight + 5) + 10;
+                        yPos += 42;
                         
-                        // Incidents Section
+                        // Related Incidents Section (matching UI card layout)
                         if (reportDetails.related_incidents && reportDetails.related_incidents.length > 0) {
-                          checkNewPage(40);
-                          drawSectionHeader(`Security Incidents (${reportDetails.related_incidents.length})`, yPos);
-                          yPos += 12;
+                          checkNewPage(25);
+                          drawSectionHeader(`Related Incidents (${reportDetails.related_incidents.length})`, yPos);
+                          yPos += 6;
                           
-                          pdf.setFontSize(10);
-                          pdf.setFont('helvetica', 'bold');
-                          
-                          // Table header
-                          pdf.setFillColor(243, 244, 246);
-                          pdf.rect(margin, yPos, pageWidth - 2 * margin, 8, 'F');
-                          pdf.setTextColor(75, 85, 99);
-                          pdf.setFontSize(9);
-                          pdf.text('ID', margin + 2, yPos + 6);
-                          pdf.text('Title', margin + 30, yPos + 6);
-                          pdf.text('Severity', margin + 120, yPos + 6);
-                          pdf.text('Status', margin + 160, yPos + 6);
-                          yPos += 10;
-                          
-                          pdf.setFontSize(8);
-                          pdf.setFont('helvetica', 'normal');
-                          reportDetails.related_incidents.slice(0, 10).forEach((incident: any, index: number) => {
-                            checkNewPage(12);
+                          reportDetails.related_incidents.forEach((incident: any) => {
+                            checkNewPage(28);
                             
-                            // Alternate row colors
-                            if ((index % 2) === 0) {
-                              pdf.setFillColor(249, 250, 251);
-                              pdf.rect(margin, yPos - 6, pageWidth - 2 * margin, 10, 'F');
-                            }
+                            // Draw incident card
+                            drawCard(margin, yPos, pageWidth - 2 * margin, 25, [226, 232, 240]);
                             
-                            pdf.setTextColor(40, 40, 40);
-                            pdf.text(incident.id.substring(0, 12), margin + 2, yPos);
-                            pdf.text(incident.title.substring(0, 35), margin + 30, yPos);
+                            // Incident ID and badges
+                            pdf.setFontSize(7);
+                            pdf.setTextColor(100, 116, 139);
+                            pdf.text(incident.id, margin + 3, yPos + 6);
                             
-                            // Severity color coding
-                            const severityColor = incident.severity?.toLowerCase() === 'critical' ? [239, 68, 68] :
-                                                  incident.severity?.toLowerCase() === 'high' ? [249, 115, 22] :
-                                                  incident.severity?.toLowerCase() === 'medium' ? [234, 179, 8] : [107, 114, 128];
-                            pdf.setFillColor(severityColor[0], severityColor[1], severityColor[2]);
-                            pdf.roundedRect(margin + 120, yPos - 6, 25, 6, 2, 2, 'F');
+                            // Severity badge
+                            const sevColor = incident.severity === 'critical' ? [239, 68, 68] :
+                                           incident.severity === 'high' ? [249, 115, 22] :
+                                           incident.severity === 'medium' ? [234, 179, 8] : [107, 114, 128];
+                            pdf.setFillColor(sevColor[0], sevColor[1], sevColor[2]);
+                            pdf.roundedRect(margin + 30, yPos + 2.5, 18, 5, 1, 1, 'F');
                             pdf.setTextColor(255, 255, 255);
-                            pdf.text(incident.severity || 'N/A', margin + 122, yPos - 1);
+                            pdf.setFontSize(6);
+                            pdf.text(incident.severity?.toUpperCase() || 'N/A', margin + 31, yPos + 5.5);
                             
-                            pdf.setTextColor(75, 85, 99);
-                            pdf.text(incident.status || 'N/A', margin + 160, yPos);
-                            yPos += 10;
-                          });
-                          yPos += 5;
-                        }
-                        
-                        // Threats Section
-                        if (reportDetails.related_threats && reportDetails.related_threats.length > 0) {
-                          checkNewPage(40);
-                          drawSectionHeader(`Threat Intelligence (${reportDetails.related_threats.length})`, yPos);
-                          yPos += 12;
-                          
-                          // Table header
-                          pdf.setFillColor(243, 244, 246);
-                          pdf.rect(margin, yPos, pageWidth - 2 * margin, 8, 'F');
-                          pdf.setTextColor(75, 85, 99);
-                          pdf.setFontSize(9);
-                          pdf.setFont('helvetica', 'bold');
-                          pdf.text('Threat', margin + 2, yPos + 6);
-                          pdf.text('Type', margin + 100, yPos + 6);
-                          pdf.text('Severity', margin + 140, yPos + 6);
-                          pdf.text('Score', margin + 170, yPos + 6);
-                          yPos += 10;
-                          
-                          pdf.setFontSize(8);
-                          pdf.setFont('helvetica', 'normal');
-                          reportDetails.related_threats.slice(0, 10).forEach((threat: any, index: number) => {
-                            checkNewPage(12);
+                            // Status badge
+                            pdf.setFillColor(226, 232, 240);
+                            pdf.setDrawColor(203, 213, 225);
+                            pdf.roundedRect(margin + 50, yPos + 2.5, 15, 5, 1, 1, 'FD');
+                            pdf.setTextColor(71, 85, 105);
+                            pdf.text(incident.status?.toUpperCase() || 'N/A', margin + 51, yPos + 5.5);
                             
-                            // Alternate row colors
-                            if ((index % 2) === 0) {
-                              pdf.setFillColor(249, 250, 251);
-                              pdf.rect(margin, yPos - 6, pageWidth - 2 * margin, 10, 'F');
-                            }
-                            
-                            pdf.setTextColor(40, 40, 40);
-                            pdf.text(threat.title.substring(0, 45), margin + 2, yPos);
-                            pdf.text(threat.type || 'N/A', margin + 100, yPos);
-                            
-                            // Severity color coding
-                            const severityColor = threat.severity?.toLowerCase() === 'critical' ? [239, 68, 68] :
-                                                  threat.severity?.toLowerCase() === 'high' ? [249, 115, 22] :
-                                                  threat.severity?.toLowerCase() === 'medium' ? [234, 179, 8] : [107, 114, 128];
-                            pdf.setFillColor(severityColor[0], severityColor[1], severityColor[2]);
-                            pdf.roundedRect(margin + 140, yPos - 6, 25, 6, 2, 2, 'F');
-                            pdf.setTextColor(255, 255, 255);
-                            pdf.text((threat.severity || 'N/A').substring(0, 8), margin + 142, yPos - 1);
-                            
-                            pdf.setTextColor(59, 130, 246);
+                            // Incident title
+                            pdf.setFontSize(9);
                             pdf.setFont('helvetica', 'bold');
-                            pdf.text(`${(threat.score * 100).toFixed(0)}%`, margin + 170, yPos);
+                            pdf.setTextColor(30, 41, 59);
+                            pdf.text(incident.title.substring(0, 60), margin + 3, yPos + 13);
                             pdf.setFont('helvetica', 'normal');
-                            yPos += 10;
+                            
+                            // Description
+                            pdf.setFontSize(7);
+                            pdf.setTextColor(100, 116, 139);
+                            const descLines = pdf.splitTextToSize(incident.description, pageWidth - 2 * margin - 10);
+                            pdf.text(descLines.slice(0, 2), margin + 3, yPos + 18);
+                            
+                            yPos += 28;
                           });
-                          yPos += 5;
                         }
                         
-                        // Assets Section
-                        if (reportDetails.related_assets && reportDetails.related_assets.length > 0) {
-                          checkNewPage(40);
-                          drawSectionHeader(`Affected Assets (${reportDetails.related_assets.length})`, yPos);
-                          yPos += 12;
+                        // Related Threats Section (matching UI card layout)
+                        if (reportDetails.related_threats && reportDetails.related_threats.length > 0) {
+                          checkNewPage(25);
+                          drawSectionHeader(`Threat Intelligence (${reportDetails.related_threats.length})`, yPos);
+                          yPos += 6;
                           
-                          // Table header
-                          pdf.setFillColor(243, 244, 246);
-                          pdf.rect(margin, yPos, pageWidth - 2 * margin, 8, 'F');
-                          pdf.setTextColor(75, 85, 99);
-                          pdf.setFontSize(9);
-                          pdf.setFont('helvetica', 'bold');
-                          pdf.text('Asset Name', margin + 2, yPos + 6);
-                          pdf.text('IP Address', margin + 80, yPos + 6);
-                          pdf.text('Status', margin + 130, yPos + 6);
-                          pdf.text('Vulnerabilities', margin + 170, yPos + 6);
-                          yPos += 10;
-                          
-                          pdf.setFontSize(8);
-                          pdf.setFont('helvetica', 'normal');
-                          reportDetails.related_assets.slice(0, 15).forEach((asset: any, index: number) => {
-                            checkNewPage(12);
+                          reportDetails.related_threats.forEach((threat: any) => {
+                            checkNewPage(28);
                             
-                            // Alternate row colors
-                            if ((index % 2) === 0) {
-                              pdf.setFillColor(249, 250, 251);
-                              pdf.rect(margin, yPos - 6, pageWidth - 2 * margin, 10, 'F');
+                            drawCard(margin, yPos, pageWidth - 2 * margin, 25, [226, 232, 240]);
+                            
+                            // Type badge
+                            const typeColors: Record<string, number[]> = {
+                              cve: [239, 68, 68],
+                              ioc: [59, 130, 246],
+                              threat_feed: [249, 115, 22],
+                              tactic: [168, 85, 247]
+                            };
+                            const tColor = typeColors[threat.type] || [107, 114, 128];
+                            pdf.setFillColor(tColor[0], tColor[1], tColor[2]);
+                            pdf.roundedRect(margin + 3, yPos + 3, 15, 5, 1, 1, 'F');
+                            pdf.setTextColor(255, 255, 255);
+                            pdf.setFontSize(6);
+                            pdf.text(threat.type?.toUpperCase() || 'N/A', margin + 4, yPos + 6);
+                            
+                            // Severity badge
+                            const sevColor = threat.severity === 'critical' ? [239, 68, 68] :
+                                           threat.severity === 'high' ? [249, 115, 22] : [234, 179, 8];
+                            pdf.setFillColor(226, 232, 240);
+                            pdf.setDrawColor(sevColor[0], sevColor[1], sevColor[2]);
+                            pdf.roundedRect(margin + 20, yPos + 3, 18, 5, 1, 1, 'FD');
+                            pdf.setTextColor(sevColor[0], sevColor[1], sevColor[2]);
+                            pdf.text(threat.severity?.toUpperCase() || 'N/A', margin + 21, yPos + 6);
+                            
+                            // Confidence score (right side)
+                            pdf.setFontSize(14);
+                            pdf.setFont('helvetica', 'bold');
+                            pdf.setTextColor(59, 130, 246);
+                            pdf.text(`${(threat.score * 100).toFixed(0)}%`, pageWidth - margin - 15, yPos + 10);
+                            pdf.setFontSize(6);
+                            pdf.setTextColor(100, 116, 139);
+                            pdf.text('CONFIDENCE', pageWidth - margin - 18, yPos + 14);
+                            pdf.setFont('helvetica', 'normal');
+                            
+                            // Title
+                            pdf.setFontSize(9);
+                            pdf.setFont('helvetica', 'bold');
+                            pdf.setTextColor(30, 41, 59);
+                            pdf.text(threat.title.substring(0, 55), margin + 3, yPos + 14);
+                            pdf.setFont('helvetica', 'normal');
+                            
+                            // Description
+                            pdf.setFontSize(7);
+                            pdf.setTextColor(100, 116, 139);
+                            const descLines = pdf.splitTextToSize(threat.description, pageWidth - 2 * margin - 40);
+                            pdf.text(descLines.slice(0, 2), margin + 3, yPos + 19);
+                            
+                            yPos += 28;
+                          });
+                        }
+                        
+                        // Related Assets Section (matching UI 2-column grid)
+                        if (reportDetails.related_assets && reportDetails.related_assets.length > 0) {
+                          checkNewPage(25);
+                          drawSectionHeader(`Affected Assets (${reportDetails.related_assets.length})`, yPos);
+                          yPos += 6;
+                          
+                          const cardWidth = (pageWidth - 2 * margin - 4) / 2;
+                          let col = 0;
+                          
+                          reportDetails.related_assets.forEach((asset: any, idx: number) => {
+                            if (col === 0) checkNewPage(18);
+                            
+                            const x = col === 0 ? margin : margin + cardWidth + 4;
+                            
+                            drawCard(x, yPos, cardWidth, 15, [226, 232, 240]);
+                            
+                            // Asset name
+                            pdf.setFontSize(8);
+                            pdf.setFont('helvetica', 'bold');
+                            pdf.setTextColor(30, 41, 59);
+                            pdf.text(asset.name?.substring(0, 20) || 'N/A', x + 2, yPos + 5);
+                            pdf.setFont('helvetica', 'normal');
+                            
+                            // IP
+                            if (asset.ip) {
+                              pdf.setFontSize(7);
+                              pdf.setTextColor(100, 116, 139);
+                              pdf.text(`IP: ${asset.ip}`, x + 2, yPos + 9);
                             }
                             
-                            pdf.setTextColor(40, 40, 40);
-                            pdf.text((asset.name || 'N/A').substring(0, 35), margin + 2, yPos);
-                            pdf.text((asset.ip || 'N/A').substring(0, 15), margin + 80, yPos);
-                            
-                            // Status color coding
-                            const statusColor = asset.status?.toLowerCase() === 'at risk' ? [239, 68, 68] :
-                                               asset.status?.toLowerCase() === 'monitored' ? [234, 179, 8] : [34, 197, 94];
+                            // Status badge (right side)
+                            const statusColor = asset.status === 'critical' ? [239, 68, 68] :
+                                              asset.status === 'warning' ? [249, 115, 22] : [34, 197, 94];
                             pdf.setFillColor(statusColor[0], statusColor[1], statusColor[2]);
-                            pdf.roundedRect(margin + 130, yPos - 6, 30, 6, 2, 2, 'F');
+                            pdf.roundedRect(x + cardWidth - 22, yPos + 2, 20, 4, 1, 1, 'F');
                             pdf.setTextColor(255, 255, 255);
-                            pdf.text((asset.status || 'N/A').substring(0, 10), margin + 132, yPos - 1);
+                            pdf.setFontSize(6);
+                            pdf.text(asset.status?.toUpperCase() || 'N/A', x + cardWidth - 21, yPos + 5);
                             
-                            pdf.setTextColor(75, 85, 99);
-                            pdf.text(String(asset.vulnerabilities || 0), margin + 170, yPos);
-                            yPos += 10;
+                            // Vulnerabilities count
+                            pdf.setFontSize(7);
+                            pdf.setTextColor(100, 116, 139);
+                            pdf.text(`${asset.vulnerabilities || 0} vulns`, x + cardWidth - 21, yPos + 9);
+                            
+                            col++;
+                            if (col >= 2) {
+                              col = 0;
+                              yPos += 18;
+                            }
                           });
-                          yPos += 5;
+                          
+                          if (col > 0) yPos += 18;
+                        }
+                        
+                        // Related Alerts Section
+                        if (reportDetails.related_alerts && reportDetails.related_alerts.length > 0) {
+                          checkNewPage(25);
+                          drawSectionHeader(`Key Alerts (${Math.min(reportDetails.related_alerts.length, 10)})`, yPos);
+                          yPos += 6;
+                          
+                          reportDetails.related_alerts.slice(0, 10).forEach((alert: any) => {
+                            checkNewPage(18);
+                            
+                            drawCard(margin, yPos, pageWidth - 2 * margin, 15, [226, 232, 240]);
+                            
+                            // Title
+                            pdf.setFontSize(8);
+                            pdf.setFont('helvetica', 'bold');
+                            pdf.setTextColor(30, 41, 59);
+                            pdf.text(alert.title?.substring(0, 60) || 'N/A', margin + 3, yPos + 5);
+                            pdf.setFont('helvetica', 'normal');
+                            
+                            // Description
+                            pdf.setFontSize(7);
+                            pdf.setTextColor(100, 116, 139);
+                            pdf.text(alert.description?.substring(0, 80) || 'N/A', margin + 3, yPos + 9);
+                            
+                            // Severity badge (right side)
+                            const sevColor = alert.severity === 'critical' ? [239, 68, 68] :
+                                           alert.severity === 'high' ? [249, 115, 22] :
+                                           alert.severity === 'medium' ? [234, 179, 8] : [107, 114, 128];
+                            pdf.setFillColor(sevColor[0], sevColor[1], sevColor[2]);
+                            pdf.roundedRect(pageWidth - margin - 22, yPos + 2, 20, 4, 1, 1, 'F');
+                            pdf.setTextColor(255, 255, 255);
+                            pdf.setFontSize(6);
+                            pdf.text(alert.severity?.toUpperCase() || 'N/A', pageWidth - margin - 21, yPos + 5);
+                            
+                            // Anomaly score
+                            if (alert.anomaly_score != null) {
+                              pdf.setFontSize(7);
+                              pdf.setTextColor(100, 116, 139);
+                              pdf.text(`Score: ${alert.anomaly_score.toFixed(2)}`, pageWidth - margin - 22, yPos + 9);
+                            }
+                            
+                            yPos += 18;
+                          });
                         }
                         
                         // Footer on all pages
@@ -537,8 +583,15 @@ export default function Reports() {
                         <p className="text-3xl font-mono font-bold text-foreground mt-2">{reportDetails.report.findings}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-muted-foreground uppercase tracking-wider">Incidents</p>
-                        <p className="text-3xl font-mono font-bold text-destructive mt-2">{reportDetails.summary.total_incidents}</p>
+                        <p className="text-xs text-muted-foreground uppercase tracking-wider">Critical</p>
+                        <p className="text-3xl font-mono font-bold text-destructive mt-2">
+                          {allIncidents.filter((i: any) => {
+                            const title = (i.title || '').toUpperCase();
+                            return ['SQL_INJECTION', 'XSS', 'COMMAND_INJECTION', 'PATH_TRAVERSAL', 'DOS', 'BRUTE_FORCE'].some(
+                              attackType => title.includes(attackType) || title.includes(attackType.replace('_', ' '))
+                            );
+                          }).length}
+                        </p>
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground uppercase tracking-wider">Threats</p>
